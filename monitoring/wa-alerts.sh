@@ -5,13 +5,23 @@
 # Sends to @Whatsauctionbot on Telegram
 # ══════════════════════════════════════════════════════════════
 
-BOT_TOKEN="REDACTED_BOT_TOKEN"
-CHAT_IDS="6531675960 5253614714"  # Kobus. Add De Clercq when he /starts
+BOT_TOKEN="${WA_ALERT_BOT_TOKEN:-}"
+CHAT_IDS="${WA_ALERT_CHAT_IDS:-6531675960 5253614714}"
 STATE_DIR="/tmp/wa-alerts"
-DB_PASS="vpn_secure_password_2025"
-DB_USER="vpn_user"
-DB_NAME="whatsauction"
+DB_PASS="${WA_DB_PASS:-}"
+DB_USER="${WA_DB_USER:-vpn_user}"
+DB_NAME="${WA_DB_NAME:-whatsauction}"
 ALERT_LOG="/var/log/wa-alerts.log"
+
+# Fail fast if critical vars missing
+if [ -z "$BOT_TOKEN" ]; then
+  echo "[wa-alerts] ERROR: WA_ALERT_BOT_TOKEN not set" >&2
+  exit 1
+fi
+if [ -z "$DB_PASS" ]; then
+  echo "[wa-alerts] ERROR: WA_DB_PASS not set" >&2
+  exit 1
+fi
 
 mkdir -p "$STATE_DIR"
 
