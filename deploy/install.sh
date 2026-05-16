@@ -90,6 +90,7 @@ CIRCUS_SECRET_KEY=$SECRET
 CIRCUS_OWNER_PRIVATE_KEY_PATH=$CIRCUS_DATA_DIR/owner.key
 CIRCUS_OWNER_ID=admin
 EOF
+  chmod 600 "$CIRCUS_ENV"
   log "Created $CIRCUS_ENV with generated secret key"
 fi
 
