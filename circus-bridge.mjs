@@ -12,6 +12,13 @@ import { join } from 'path';
 
 const execFileAsync = promisify(execFile);
 
+// SQL escaping helper for SQLite string literals
+function sqlEscape(str) {
+  if (typeof str !== 'string') return '';
+  // Replace single quotes with double single quotes (SQLite escaping)
+  return str.replace(/'/g, "''").replace(/\0/g, '');
+}
+
 const CIRCUS_URL = process.env.CIRCUS_URL || 'http://localhost:6200';
 const CIRCUS_DB  = process.env.CIRCUS_DB  || '/root/.circus/circus.db';
 const OWNER_ID   = process.env.CIRCUS_OWNER_ID  || 'kobus';
@@ -278,6 +285,7 @@ export async function circusJoinRooms(rooms = ['memory-commons']) {
 
 let _heartbeatHandle = null;
 let _lastRooms = [];
+let _heartbeatFailures = 0;
 
 async function sendHeartbeat() {
   if (!_ringToken) return;
@@ -291,8 +299,16 @@ async function sendHeartbeat() {
       console.warn('[Circus] Heartbeat got 401 — re-authing...');
       await handleAuthFailure();
     }
-  } catch {
-    // Non-fatal — will retry next interval
+    // Reset failure counter on success
+    _heartbeatFailures = 0;
+  } catch (err) {
+    _heartbeatFailures++;
+    console.warn(`[Circus] Heartbeat failed (${_heartbeatFailures}): ${err.message}`);
+    if (_heartbeatFailures >= 3) {
+      console.error('[Circus] 3 consecutive heartbeat failures — marking token invalid for reconnect');
+      _ringToken = null;
+      _heartbeatFailures = 0;
+    }
   }
 }
 
@@ -346,7 +362,7 @@ export async function getActivePreferences() {
   try {
     const { stdout } = await execFileAsync('sqlite3', [
       CIRCUS_DB, '-json',
-      `SELECT field_name, value FROM active_preferences WHERE owner_id = '${OWNER_ID}'`
+      `SELECT field_name, value FROM active_preferences WHERE owner_id = '${sqlEscape(OWNER_ID)}'`
     ], { timeout: 5000 });
 
     const rows = stdout.trim() ? JSON.parse(stdout) : [];
@@ -416,19 +432,20 @@ export async function publishPreference(field, value, confidence, reasoning) {
     const memoryId = hexOut.trim();
 
     // Sign with Ed25519 via Python (Circus's canonicalize_for_signing)
+    // Pass variables via sys.argv to prevent command injection
     const signScript = [
       'import sys, base64, json; sys.path.insert(0, "/root/circus")',
       'from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey',
       'from cryptography.hazmat.primitives import serialization',
       'from circus.services.bundle_signing import canonicalize_for_signing',
-      `priv = base64.b64decode(open('${OWNER_KEY}').read().strip())`,
+      'priv = base64.b64decode(open(sys.argv[1]).read().strip())',
       'pk = Ed25519PrivateKey.from_private_bytes(priv)',
-      `payload = {"agent_id": "${_agentId}", "memory_id": sys.argv[1], "owner_id": "${OWNER_ID}", "timestamp": sys.argv[2]}`,
+      'payload = {"agent_id": sys.argv[2], "memory_id": sys.argv[3], "owner_id": sys.argv[4], "timestamp": sys.argv[5]}',
       'sig = pk.sign(canonicalize_for_signing(payload))',
       'print(base64.b64encode(sig).decode())'
     ].join('\n');
 
-    const { stdout: sigOut } = await execFileAsync('python3', ['-c', signScript, memoryId, timestamp], { timeout: 10000 });
+    const { stdout: sigOut } = await execFileAsync('python3', ['-c', signScript, OWNER_KEY, _agentId, memoryId, OWNER_ID, timestamp], { timeout: 10000 });
     const signature = sigOut.trim();
 
     const body = {
@@ -493,6 +510,7 @@ export async function publishPreference(field, value, confidence, reasoning) {
  * Returns array of {field, value, confidence, reasoning}
  */
 export function detectPreferenceSignals(text) {
+  if (!text || text.length > 2000) return [];
   const lower = text.toLowerCase();
   const signals = [];
 
