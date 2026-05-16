@@ -1,0 +1,19 @@
+[Unit]
+Description=Circus Multi-Agent API
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/hydrabot
+ExecStart=/usr/bin/python3 -m uvicorn circus.app:app --host 127.0.0.1 --port 6200
+Restart=always
+RestartSec=5
+MemoryMax=3G
+StandardOutput=append:/var/log/circus-api.log
+StandardError=append:/var/log/circus-api.err.log
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

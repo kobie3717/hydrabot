@@ -1,0 +1,8 @@
+{
+  "maxWorkers": 10,
+  "idleTimeoutMs": 60000,
+  "requestTimeoutMs": 120000,
+  "claudeRequestsPerMinute": 100,
+  "telegramMessagesPerSec": 30,
+  "metricsPort": 9090
+}
