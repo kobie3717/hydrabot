@@ -11,3 +11,8 @@ __pycache__/
 .env.local
 pm2.log
 performers/*/memory/*.db
+*.key
+*.pub
+*-identity.json
+circus.db
+aiiq-sync-state*.json

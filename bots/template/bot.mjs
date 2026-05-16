@@ -12,7 +12,11 @@ import 'dotenv/config';
 import { Bot } from 'grammy';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import {
+
+// Support both in-repo and standalone deployment
+const BRIDGE_PATH = process.env.CIRCUS_BRIDGE_PATH ||
+  new URL('../../circus-bridge.mjs', import.meta.url).pathname;
+const {
   circusRegister,
   circusJoinRooms,
   startHeartbeat,
@@ -21,7 +25,7 @@ import {
   enableAutoReconnect,
   writeSharedKnowledge,
   getRelevantSharedKnowledge,
-} from '../../circus-bridge.mjs';
+} = await import(BRIDGE_PATH);
 
 const execFileAsync = promisify(execFile);
 

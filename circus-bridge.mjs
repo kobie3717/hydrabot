@@ -13,15 +13,17 @@ import { join } from 'path';
 const execFileAsync = promisify(execFile);
 
 const CIRCUS_URL = process.env.CIRCUS_URL || 'http://localhost:6200';
-const CIRCUS_DB  = process.env.CIRCUS_DB || '/root/.circus/circus.db';
-const OWNER_ID   = process.env.CIRCUS_OWNER_ID || 'kobus';
+const CIRCUS_DB  = process.env.CIRCUS_DB  || '/root/.circus/circus.db';
+const OWNER_ID   = process.env.CIRCUS_OWNER_ID  || 'kobus';
 const OWNER_KEY  = process.env.CIRCUS_OWNER_KEY || '/root/.circus/kobus.key';
-const CIRCUS_IDENTITY_DIR = process.env.CIRCUS_IDENTITY_DIR || (process.env.HOME ? process.env.HOME + '/.circus' : '/root/.circus');
+const CIRCUS_IDENTITY_DIR = process.env.CIRCUS_IDENTITY_DIR || (process.env.HOME ? `${process.env.HOME}/.circus` : '/root/.circus');
+const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || '/root/bot-circus';
 
 // Runtime state
 let _ringToken = null;
 let _agentId   = null;
 let _agentName  = null;
+let _agentRole  = null;  // preserved for re-auth (avoids role drift on 401)
 
 // Preference cache (1 hour TTL)
 let _prefsCache    = null;
@@ -177,6 +179,7 @@ export async function circusRegister(name, role) {
       _ringToken = savedFresh.ring_token;
       _agentId = savedFresh.agent_id;
       _agentName = name;
+      _agentRole = role;
       console.log(`[Circus] ✅ Reused identity for ${name} (${savedFresh.agent_id})`);
       return _ringToken;
     }
@@ -218,6 +221,7 @@ export async function circusRegister(name, role) {
         _ringToken = retryData.ring_token || retryData.token;
         _agentId = retryData.agent_id || retryData.id || uniqueName;
         _agentName = name;
+        _agentRole = role;
 
         if (!_ringToken) {
           console.error('[Circus] Retry response missing token. Got:', JSON.stringify(Object.keys(retryData)));
@@ -237,6 +241,7 @@ export async function circusRegister(name, role) {
     _ringToken = data.ring_token || data.token;
     _agentId = data.agent_id || data.id || name;
     _agentName = name;
+    _agentRole = role;
 
     if (!_ringToken) {
       console.error('[Circus] Register response missing token. Got:', JSON.stringify(Object.keys(data)));
@@ -320,8 +325,7 @@ async function handleAuthFailure() {
     console.error('[Circus] Failed to clear identity file:', err.message);
   }
 
-  // Re-register (role is unknown here, use generic 'assistant')
-  const newToken = await circusRegister(_agentName, 'assistant');
+  const newToken = await circusRegister(_agentName, _agentRole || 'assistant');
   if (newToken) {
     // Rejoin rooms after re-auth — _lastRooms tracks what rooms this agent was in
     if (_lastRooms.length) await circusJoinRooms(_lastRooms);
@@ -841,7 +845,7 @@ const _PERFORMER_ID = {
   'Octo': 'octo', 'webbs': 'webbs', 'Friday': 'friday',
   '007': '007', 'Claw': 'claw', 'WA-Drone': 'wa-drone',
 };
-const PERFORMERS_DIR = process.env.PERFORMERS_DIR || new URL('../performers', import.meta.url).pathname;
+const PERFORMERS_DIR = process.env.PERFORMERS_DIR || `${BOT_CIRCUS_DIR}/performers`;
 
 /**
  * Register a handler for a specific task type.
@@ -921,7 +925,7 @@ async function processTask(task) {
         : (payload.prompt || payload.message || payload.brief || payload.description || JSON.stringify(payload, null, 2));
 
       console.log(`[Circus] Task ${task_id} → dispatching to worker [${performerId}]`);
-      const { dispatch } = await import('/root/bot-circus/dispatch.mjs');
+      const { dispatch } = await import(`${BOT_CIRCUS_DIR}/dispatch.mjs`);
       const workerResult = await dispatch(performerId,
         `# Circus Task\nType: ${task_type}\nFrom: ${from_agent_id}\n\n${prompt}`
       );
