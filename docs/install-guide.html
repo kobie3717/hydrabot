@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HydraBot — Installation Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 48px 56px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    padding: 56px 0 48px;
+    border-bottom: 3px solid #1a1a2e;
+    margin-bottom: 40px;
+  }
+  .cover-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6c63ff;
+    margin-bottom: 12px;
+  }
+  .cover h1 {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #1a1a2e;
+    margin-bottom: 8px;
+  }
+  .cover h1 span { color: #6c63ff; }
+  .cover-sub {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 28px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    color: #888;
+  }
+  .cover-meta span { font-weight: 600; color: #444; }
+
+  /* ── Section headings ── */
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 36px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e8e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: #6c63ff;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Architecture diagram ── */
+  .arch {
+    background: #f8f7ff;
+    border: 1px solid #e0deff;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #333;
+  }
+
+  /* ── Code blocks ── */
+  pre {
+    background: #1a1a2e;
+    color: #e8e8f0;
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    margin: 12px 0;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  pre .comment { color: #6c63ff; }
+  pre .cmd { color: #a8ff78; }
+  pre .flag { color: #ffd89b; }
+  pre .val { color: #ff9a9e; }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    background: #f0efff;
+    color: #5a4fcf;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 12.5px;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #1a1a2e;
+    color: #fff;
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  td code { font-size: 11px; }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 12.5px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    page-break-inside: avoid;
+  }
+  .callout-icon { font-size: 18px; flex-shrink: 0; line-height: 1.4; }
+  .callout.warn  { background: #fff8e6; border-left: 4px solid #f5a623; }
+  .callout.info  { background: #f0efff; border-left: 4px solid #6c63ff; }
+  .callout.good  { background: #edfff4; border-left: 4px solid #27ae60; }
+  .callout strong { display: block; margin-bottom: 3px; }
+
+  /* ── Step list ── */
+  .steps { counter-reset: step; list-style: none; margin: 12px 0; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 14px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+  .steps li::before {
+    content: counter(step);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    background: #6c63ff;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  /* ── Env table ── */
+  .env-row td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5a4fcf; font-weight: 500; }
+  .env-row td:last-child { color: #555; }
+  .required { color: #e74c3c; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .optional { color: #999; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ── Layer table ── */
+  .layer td:first-child { font-weight: 600; color: #6c63ff; width: 60px; }
+  .layer td:nth-child(2) { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; width: 160px; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid #e8e8f0; margin: 28px 0; }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 2px solid #1a1a2e;
+    font-size: 11px;
+    color: #999;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Print / PDF ── */
+  @media print {
+    body { padding: 0; }
+    h2 { page-break-before: auto; }
+    .no-break { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <div class="cover-tag">Installation Guide</div>
+  <h1><span>Hydra</span>Bot Stack</h1>
+  <div class="cover-sub">Multi-agent AI infrastructure powered by Claude Code CLI</div>
+  <div class="cover-meta">
+    <div>Version <span>1.0</span></div>
+    <div>Platform <span>Ubuntu 22.04 / Debian 12</span></div>
+    <div>Requires <span>Claude Max subscription</span></div>
+  </div>
+</div>
+
+<!-- Overview -->
+<h2><span class="num">0</span> Overview</h2>
+
+<p>HydraBot is a deployable AI agent stack. Each bot is a Telegram interface powered by Claude Code CLI, connected to a shared memory system (AI-IQ) and a multi-agent mesh (Circus). Ephemeral sub-workers handle background tasks in parallel.</p>
+
+<div class="arch">Telegram API
+     │
+     ▼
+PM2 Bots  (grammy + Claude Code CLI)
+     │
+     ├─── circus-bridge.mjs ──► Circus API :6200  (FastAPI, systemd)
+     │                               │
+     │                               ▼
+     │                          AI-IQ memory (SQLite + vectors)
+     │
+     └─── bot-circus/dispatch.mjs ──► Ephemeral Claude workers (up to 10 parallel)</div>
+
+<table class="layer">
+  <tr><th>Layer</th><th>Component</th><th>Purpose</th></tr>
+  <tr><td>0</td><td>Claude Code CLI</td><td>AI inference engine — all bots call this</td></tr>
+  <tr><td>1</td><td>AI-IQ</td><td>Per-agent long-term memory</td></tr>
+  <tr><td>2</td><td>Circus</td><td>Agent mesh: registry, rooms, task queue</td></tr>
+  <tr><td>3</td><td>Bot-Circus</td><td>Ephemeral worker pool for sub-tasks</td></tr>
+  <tr><td>4</td><td>circus-bridge.mjs</td><td>Node.js ↔ Circus integration module</td></tr>
+  <tr><td>5</td><td>Bots</td><td>Telegram interface + business logic</td></tr>
+</table>
+
+<!-- Prerequisites -->
+<h2><span class="num">1</span> Prerequisites</h2>
+
+<table>
+  <tr><th>Requirement</th><th>Minimum</th><th>Notes</th></tr>
+  <tr><td>OS</td><td>Ubuntu 22.04 / Debian 12</td><td>macOS with Homebrew also works</td></tr>
+  <tr><td>RAM</td><td>1 GB</td><td>2 GB recommended if running multiple bots</td></tr>
+  <tr><td>Disk</td><td>5 GB free</td><td>10 GB recommended</td></tr>
+  <tr><td>CPU</td><td>1 core</td><td>2 cores recommended</td></tr>
+  <tr><td>Node.js</td><td>22.x</td><td>Installer handles this automatically</td></tr>
+  <tr><td>Python</td><td>3.10+</td><td>Installer handles this automatically</td></tr>
+  <tr><td>Claude subscription</td><td>Claude Max</td><td><strong>Required.</strong> claude.ai/upgrade — used for auth</td></tr>
+  <tr><td>Telegram bot token</td><td>One per bot</td><td>Free — create via @BotFather</td></tr>
+</table>
+
+<div class="callout warn">
+  <div class="callout-icon">⚠️</div>
+  <div><strong>Claude Max is required</strong>The Claude Code CLI authenticates against your claude.ai account. A Max subscription is needed for the API access the bots rely on. The installer will pause and prompt you to log in if not already authenticated.</div>
+</div>
+
+<!-- Step 1 — Clone -->
+<h2><span class="num">2</span> Clone the Repository</h2>
+
+<pre><span class="comment"># Clone to /opt/hydrabot (recommended) or any directory</span>
+<span class="cmd">git clone</span> &lt;repo-url&gt; /opt/hydrabot
+<span class="cmd">cd</span> /opt/hydrabot</pre>
+
+<div class="callout info">
+  <div class="callout-icon">ℹ️</div>
+  <div>You can install to any path. The installer respects the <code>HYDRABOT_DIR</code> environment variable. Examples in this guide use <code>/opt/hydrabot</code>.</div>
+</div>
+
+<!-- Step 2 — Install -->
+<h2><span class="num">3</span> Run the Installer</h2>
+
+<pre><span class="comment"># Run as root (or with sudo)</span>
+<span class="cmd">sudo</span> HYDRABOT_DIR=/opt/hydrabot <span class="cmd">bash</span> /opt/hydrabot/deploy/install.sh</pre>
+
+<p>The installer performs these steps automatically:</p>
+
+<ul class="steps">
+  <li>Installs system packages: <code>curl git python3 python3-pip sqlite3 build-essential</code></li>
+  <li>Installs Node.js 22 via NodeSource (skips if already installed)</li>
+  <li>Installs PM2 globally and configures systemd startup</li>
+  <li>Installs Claude Code CLI via npm (skips if already installed)</li>
+  <li>Installs Python packages: <code>ai-iq circus-agent</code></li>
+  <li>Bootstraps the Circus data directory and generates a keypair</li>
+  <li>Installs bot-circus dependencies and initialises performer workspaces</li>
+  <li>Installs and starts the Circus API as a systemd service</li>
+</ul>
+
+<div class="callout warn">
+  <div class="callout-icon">⚠️</div>
+  <div><strong>Auth pause</strong>If Claude Code CLI is not already authenticated, the installer will stop and print:<br><br><code>Claude Code CLI installed but needs authentication.<br>Run 'claude' interactively to authenticate, then re-run this script.</code><br><br>Open a new terminal, run <code>claude</code>, complete the browser login with your Claude Max account, then re-run the installer command.</div>
+</div>
+
+<h3>Verify installation</h3>
+
+<pre><span class="comment"># Circus API should be healthy</span>
+<span class="cmd">curl</span> http://localhost:6200/health
+<span class="comment"># → {"status": "ok"}</span>
+
+<span class="comment"># Claude CLI should respond</span>
+<span class="cmd">claude</span> <span class="flag">-p</span> <span class="val">"say hello"</span>
+
+<span class="comment"># PM2 should be running</span>
+<span class="cmd">pm2</span> list</pre>
+
+<!-- Step 3 — Configure bot -->
+<h2><span class="num">4</span> Configure Your First Bot</h2>
+
+<h3>Get a Telegram bot token</h3>
+<ul class="steps">
+  <li>Open Telegram and search for <strong>@BotFather</strong></li>
+  <li>Send <code>/newbot</code> and follow the prompts</li>
+  <li>Copy the token — it looks like <code>7123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></li>
+</ul>
+
+<h3>Get your Telegram user ID</h3>
+<ul class="steps">
+  <li>Search for <strong>@userinfobot</strong> in Telegram</li>
+  <li>Send it any message — it replies with your numeric ID</li>
+</ul>
+
+<h3>Create and configure the bot</h3>
+
+<pre><span class="comment"># Copy the template</span>
+<span class="cmd">cp -r</span> /opt/hydrabot/bots/template /opt/hydrabot/bots/mybot
+
+<span class="comment"># Copy and edit the env file</span>
+<span class="cmd">cp</span> /opt/hydrabot/bots/template/.env.example /opt/hydrabot/bots/mybot/.env
+<span class="cmd">nano</span> /opt/hydrabot/bots/mybot/.env</pre>
+
+<h3>Required <code>.env</code> values</h3>
+
+<table class="env-row">
+  <tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+  <tr><td>TELEGRAM_BOT_TOKEN</td><td><span class="required">required</span></td><td>Token from @BotFather</td></tr>
+  <tr><td>ALLOWED_USER_ID</td><td><span class="required">required</span></td><td>Your numeric Telegram user ID (from @userinfobot)</td></tr>
+  <tr><td>BOT_NAME</td><td><span class="optional">optional</span></td><td>Display name for the bot — default: <code>MyBot</code></td></tr>
+  <tr><td>CLAUDE_CLI_PATH</td><td><span class="optional">optional</span></td><td>Path to <code>claude</code> binary. Default: <code>claude</code> (uses PATH). Get with <code>which claude</code></td></tr>
+  <tr><td>CLAUDE_WORKING_DIR</td><td><span class="optional">optional</span></td><td>Working directory for Claude. Default: current directory</td></tr>
+  <tr><td>CLAUDE_TIMEOUT</td><td><span class="optional">optional</span></td><td>Response timeout in ms. Default: <code>120000</code> (2 min)</td></tr>
+</table>
+
+<h3>Start the bot</h3>
+
+<pre><span class="comment"># Install dependencies</span>
+<span class="cmd">npm install</span> <span class="flag">--prefix</span> /opt/hydrabot/bots/mybot
+
+<span class="comment"># Start with PM2</span>
+<span class="cmd">pm2 start</span> /opt/hydrabot/bots/mybot/bot.mjs <span class="flag">--name</span> mybot
+
+<span class="comment"># Save so it survives reboot</span>
+<span class="cmd">pm2 save</span>
+
+<span class="comment"># Watch logs</span>
+<span class="cmd">pm2 logs</span> mybot</pre>
+
+<div class="callout good">
+  <div class="callout-icon">✅</div>
+  <div><strong>Bot is running</strong>Open Telegram, find your bot, and send it a message. It should respond via Claude within a few seconds.</div>
+</div>
+
+<!-- Step 4 — Worker -->
+<h2><span class="num">5</span> Autonomous Worker (Optional)</h2>
+
+<p>The worker polls a job queue and executes long-running tasks via Claude. Useful for background operations triggered from Telegram (<code>/task</code> style commands).</p>
+
+<pre><span class="comment"># Configure</span>
+<span class="cmd">cp</span> /opt/hydrabot/performers/worker/.env.example \
+   /opt/hydrabot/performers/worker/.env
+<span class="cmd">nano</span> /opt/hydrabot/performers/worker/.env
+
+<span class="comment"># Install deps</span>
+<span class="cmd">npm install</span> <span class="flag">--prefix</span> /opt/hydrabot/performers/worker
+
+<span class="comment"># Start</span>
+<span class="cmd">pm2 start</span> /opt/hydrabot/performers/worker/worker.mjs <span class="flag">--name</span> worker
+<span class="cmd">pm2 save</span></pre>
+
+<table class="env-row">
+  <tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+  <tr><td>TELEGRAM_BOT_TOKEN</td><td><span class="optional">optional</span></td><td>If set, worker sends job completion messages via Telegram</td></tr>
+  <tr><td>TELEGRAM_CHAT_ID</td><td><span class="optional">optional</span></td><td>Your chat ID — where job results are sent</td></tr>
+  <tr><td>CLAUDE_CLI_PATH</td><td><span class="optional">optional</span></td><td>Path to <code>claude</code> binary</td></tr>
+  <tr><td>CLAUDE_WORKING_DIR</td><td><span class="optional">optional</span></td><td>Directory Claude operates in during jobs</td></tr>
+</table>
+
+<!-- Step 5 — Multiple bots -->
+<h2><span class="num">6</span> Running Multiple Bots</h2>
+
+<p>Each bot is an independent directory. Repeat the configure step for each one:</p>
+
+<pre><span class="comment"># Second bot</span>
+<span class="cmd">cp -r</span> /opt/hydrabot/bots/template /opt/hydrabot/bots/designbot
+<span class="cmd">cp</span> /opt/hydrabot/bots/template/.env.example /opt/hydrabot/bots/designbot/.env
+<span class="comment"># Edit .env with different TELEGRAM_BOT_TOKEN</span>
+<span class="cmd">npm install</span> <span class="flag">--prefix</span> /opt/hydrabot/bots/designbot
+<span class="cmd">pm2 start</span> /opt/hydrabot/bots/designbot/bot.mjs <span class="flag">--name</span> designbot
+<span class="cmd">pm2 save</span></pre>
+
+<div class="callout info">
+  <div class="callout-icon">ℹ️</div>
+  <div>All bots share one Claude Code CLI process pool and one Circus mesh. Each bot gets its own Telegram token, allowed user, and performer workspace.</div>
+</div>
+
+<!-- Troubleshooting -->
+<h2><span class="num">7</span> Troubleshooting</h2>
+
+<table>
+  <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+  <tr>
+    <td>Bot doesn't respond</td>
+    <td>Claude not authenticated</td>
+    <td>Run <code>claude -p "hello"</code> manually. If it fails, run <code>claude login</code></td>
+  </tr>
+  <tr>
+    <td><code>claude: command not found</code></td>
+    <td>CLI not in PATH</td>
+    <td>Run <code>which claude</code> — if empty, run <code>npm install -g @anthropic-ai/claude-code</code>. Then set <code>CLAUDE_CLI_PATH</code> in <code>.env</code></td>
+  </tr>
+  <tr>
+    <td>Circus health check fails</td>
+    <td>Service not running</td>
+    <td><code>systemctl status circus-api</code> — if failed, check <code>journalctl -u circus-api -n 50</code></td>
+  </tr>
+  <tr>
+    <td>Bot starts then crashes</td>
+    <td>Missing env var</td>
+    <td><code>pm2 logs mybot</code> — look for "is required" errors. Check <code>.env</code> has <code>TELEGRAM_BOT_TOKEN</code> and <code>ALLOWED_USER_ID</code></td>
+  </tr>
+  <tr>
+    <td>Auth works locally but not on VPS</td>
+    <td>SSH session has no browser</td>
+    <td>Run <code>claude login</code> — it prints a URL. Open that URL in any browser to complete OAuth</td>
+  </tr>
+  <tr>
+    <td>Circus not connecting</td>
+    <td>Wrong URL</td>
+    <td>Default is <code>http://127.0.0.1:6200</code>. Set <code>CIRCUS_URL</code> in <code>.env</code> if Circus runs elsewhere</td>
+  </tr>
+</table>
+
+<h3>Useful commands</h3>
+
+<pre><span class="cmd">pm2 list</span>                    <span class="comment"># all running processes</span>
+<span class="cmd">pm2 logs</span> mybot              <span class="comment"># live bot logs</span>
+<span class="cmd">pm2 restart</span> mybot           <span class="comment"># restart a bot</span>
+<span class="cmd">pm2 stop</span> mybot              <span class="comment"># stop a bot</span>
+<span class="cmd">systemctl status</span> circus-api <span class="comment"># Circus API status</span>
+<span class="cmd">curl</span> http://localhost:6200/health <span class="comment"># quick Circus health check</span>
+<span class="cmd">claude</span> <span class="flag">-p</span> <span class="val">"hello"</span>          <span class="comment"># test Claude CLI directly</span></pre>
+
+<!-- Directory reference -->
+<h2><span class="num">8</span> Directory Reference</h2>
+
+<pre>hydrabot/
+├── deploy/
+│   ├── install.sh              <span class="comment"># Full VPS installer — run this first</span>
+│   ├── circus-api.service      <span class="comment"># systemd unit for Circus API</span>
+│   └── ecosystem.config.cjs   <span class="comment"># PM2 ecosystem config</span>
+├── bot-circus/
+│   ├── dispatch.mjs            <span class="comment"># Ephemeral worker pool (shared by all bots)</span>
+│   └── setup-performers.mjs   <span class="comment"># Initialise performer workspaces</span>
+├── performers/
+│   ├── template/               <span class="comment"># Blank performer workspace</span>
+│   ├── webbs/                  <span class="comment"># Frontend designer bot (full example)</span>
+│   └── worker/                 <span class="comment"># Autonomous job worker</span>
+├── bots/
+│   └── template/               <span class="comment"># ← start here when creating a bot</span>
+├── circus-bridge.mjs           <span class="comment"># Circus integration (imported by bots)</span>
+└── docs/
+    ├── architecture.md
+    ├── configuration.md
+    └── ai-iq.md</pre>
+
+<hr>
+
+<div class="footer">
+  <div>HydraBot Stack — Installation Guide v1.0</div>
+  <div>Private — All Rights Reserved</div>
+</div>
+
+</body>
+</html>
