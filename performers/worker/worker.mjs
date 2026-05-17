@@ -7,21 +7,15 @@
 import { spawn } from 'child_process';
 import { getNextJob, getRunningJob, markRunning, markDone, markFailed, listJobs } from './queue.mjs';
 
-const CLAUDE_CLI = '/root/.local/bin/claude';
-const CLAUDE_WORKING_DIR = '/root';
+const CLAUDE_CLI = process.env.CLAUDE_CLI_PATH || 'claude';
+const CLAUDE_WORKING_DIR = process.env.CLAUDE_WORKING_DIR || process.env.HOME || '/root';
 const POLL_INTERVAL = 10000; // 10 seconds
 const JOB_TIMEOUT = 30 * 60 * 1000; // 30 minutes max per job
 
 const WORKER_SYSTEM_PROMPT = `You are an autonomous worker agent. You complete coding, research, and operations tasks on a Linux VPS.
 
-Working directory: /root
+Working directory: ${CLAUDE_WORKING_DIR}
 Available tools: All Claude Code tools (Read, Write, Edit, Bash, Glob, Grep, Agent)
-
-Key projects:
-- WhatsAuction: /root/whatsauction/ (backend port 4000, worker port 4001)
-- Circus: /root/circus/ (agent commons, port 6200, Python/FastAPI)
-- WhatsHub: /root/whatshub/ (port 4006, Docker)
-- AI-IQ: /root/ai-memory-sqlite/
 
 Rules:
 - Complete the task fully before reporting done

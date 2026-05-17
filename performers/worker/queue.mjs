@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 
-const JOBS_DIR = '/root/jobs';
+const JOBS_DIR = process.env.JOBS_DIR || join(process.env.HOME || '/root', 'jobs');
 const DB_PATH = join(JOBS_DIR, 'queue.db');
 
 mkdirSync(JOBS_DIR, { recursive: true });

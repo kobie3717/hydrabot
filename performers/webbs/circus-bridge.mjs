@@ -20,11 +20,12 @@ function sqlEscape(str) {
 }
 
 const CIRCUS_URL = process.env.CIRCUS_URL || 'http://localhost:6200';
-const CIRCUS_DB  = process.env.CIRCUS_DB  || '/root/.circus/circus.db';
-const OWNER_ID   = process.env.CIRCUS_OWNER_ID  || 'kobus';
-const OWNER_KEY  = process.env.CIRCUS_OWNER_KEY || '/root/.circus/kobus.key';
-const CIRCUS_IDENTITY_DIR = process.env.CIRCUS_IDENTITY_DIR || (process.env.HOME ? `${process.env.HOME}/.circus` : '/root/.circus');
-const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || '/root/bot-circus';
+const HOME_DIR = process.env.HOME || '/root';
+const CIRCUS_DB  = process.env.CIRCUS_DB  || join(HOME_DIR, '.circus/circus.db');
+const OWNER_ID   = process.env.CIRCUS_OWNER_ID  || 'admin';
+const OWNER_KEY  = process.env.CIRCUS_OWNER_KEY || join(HOME_DIR, '.circus/owner.key');
+const CIRCUS_IDENTITY_DIR = process.env.CIRCUS_IDENTITY_DIR || join(HOME_DIR, '.circus');
+const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || join(HOME_DIR, 'hydrabot/bot-circus');
 
 // Runtime state
 let _ringToken = null;
@@ -115,12 +116,12 @@ async function verifyIdentity(agentId, ringToken) {
 
 /**
 const AIIQ_DB_MAP = {
-  'Claw':     '/root/.claude/projects/-root/memory/memories.db',
-  'Friday':   '/root/.claude/projects/-root/memory/memories.db',
-  '007':      '/root/007-bot/data/007-memories.db',
-  'WA-Drone': '/root/ai-memory-sqlite/memories.db',
-  'webbs':    '/root/ai-memory-sqlite/memories.db',
-  'Octo':     '/root/ai-memory-sqlite/memories.db',
+  'Claw':     join(HOME_DIR, '.claude/projects/-root/memory/memories.db'),
+  'Friday':   join(HOME_DIR, '.claude/projects/-root/memory/memories.db'),
+  '007':      join(HOME_DIR, '007-bot/data/007-memories.db'),
+  'WA-Drone': join(HOME_DIR, 'ai-memory-sqlite/memories.db'),
+  'webbs':    join(HOME_DIR, 'ai-memory-sqlite/memories.db'),
+  'Octo':     join(HOME_DIR, 'ai-memory-sqlite/memories.db'),
 };
 
 async function buildPassportMetrics(name) {
@@ -131,7 +132,7 @@ async function buildPassportMetrics(name) {
     score: { total: 5.0 },
   };
   try {
-    const db = AIIQ_DB_MAP[name] || '/root/ai-memory-sqlite/memories.db';
+    const db = AIIQ_DB_MAP[name] || join(HOME_DIR, 'ai-memory-sqlite/memories.db');
     if (!existsSync(db)) return defaults;
 
     const projectFilter = name === 'Claw' || name === 'Friday'
@@ -433,8 +434,9 @@ export async function publishPreference(field, value, confidence, reasoning) {
 
     // Sign with Ed25519 via Python (Circus's canonicalize_for_signing)
     // Pass variables via sys.argv to prevent command injection
+    const circusPath = process.env.CIRCUS_DIR || join(HOME_DIR, 'circus');
     const signScript = [
-      'import sys, base64, json; sys.path.insert(0, "/root/circus")',
+      `import sys, base64, json; sys.path.insert(0, "${circusPath}")`,
       'from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey',
       'from cryptography.hazmat.primitives import serialization',
       'from circus.services.bundle_signing import canonicalize_for_signing',

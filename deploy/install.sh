@@ -6,8 +6,8 @@ set -euo pipefail
 
 HYDRABOT_DIR="${HYDRABOT_DIR:-/opt/hydrabot}"
 NODE_VERSION="22"
-CIRCUS_DIR="${CIRCUS_DIR:-/root/circus}"
-CIRCUS_DATA_DIR="${CIRCUS_DATA_DIR:-/root/.circus}"
+CIRCUS_DIR="${CIRCUS_DIR:-$HOME/circus}"
+CIRCUS_DATA_DIR="${CIRCUS_DATA_DIR:-$HOME/.circus}"
 
 log() { echo "[hydrabot] $*"; }
 err() { echo "[hydrabot] ERROR: $*" >&2; exit 1; }
@@ -34,7 +34,7 @@ log "Node: $(node --version)"
 # 3. PM2
 log "[3/8] Installing PM2..."
 npm install -g pm2 2>/dev/null || true
-pm2 startup systemd -u root --hp /root 2>/dev/null || true
+pm2 startup systemd -u "$(whoami)" --hp "$HOME" 2>/dev/null || true
 
 # 4. Claude Code CLI
 log "[4/8] Checking Claude Code CLI..."
@@ -62,6 +62,7 @@ mkdir -p "$CIRCUS_DATA_DIR"
 # Generate owner keypair if not present
 if [ ! -f "$CIRCUS_DATA_DIR/owner.key" ]; then
   log "Generating Circus owner keypair..."
+  export CIRCUS_DATA_DIR
   python3 - <<'EOF'
 import sys, os
 data_dir = os.environ.get('CIRCUS_DATA_DIR', '/root/.circus')
@@ -102,7 +103,9 @@ node setup-performers.mjs
 
 # 8. Circus API systemd service
 log "[8/8] Installing Circus API service..."
-sed "s|/root/circus|$CIRCUS_DIR|g" "$HYDRABOT_DIR/deploy/circus-api.service" \
+sed -e "s|/root/circus|$CIRCUS_DIR|g" \
+    -e "s|User=root|User=$(whoami)|g" \
+    "$HYDRABOT_DIR/deploy/circus-api.service" \
   | tee /etc/systemd/system/circus-api.service > /dev/null
 systemctl daemon-reload
 systemctl enable circus-api

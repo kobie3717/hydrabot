@@ -7,15 +7,17 @@ import { promisify } from 'util';
 const execFileAsync = promisify(execFile);
 import { circusRegister, circusJoinRooms, startHeartbeat, buildPreferenceContext, getRelevantSharedKnowledge, writeSharedKnowledge, shouldShareKnowledge, registerTaskHandler, startTaskInboxPoller, enableAutoReconnect } from './circus-bridge.mjs';
 import { buildMemoryContext, autoStoreConversation } from './memory-bridge.mjs';
-import { dispatch as spawnWorker, poolStats as workerPoolStats } from '/root/bot-circus/dispatch.mjs';
+const DISPATCH_PATH = process.env.DISPATCH_PATH ||
+  new URL('../../bot-circus/dispatch.mjs', import.meta.url).pathname;
+const { dispatch: spawnWorker, poolStats: workerPoolStats } = await import(DISPATCH_PATH);
 import { getOrCreateSession, clearSession, getSessionInfo, cleanExpiredSessions, getStats } from './sessions.mjs';
 
 config();
 
 const BOT_TOKEN = process.env.WEBBS_BOT_TOKEN;
 const ALLOWED_USER_ID = parseInt(process.env.ALLOWED_USER_ID || '0', 10);
-const CLAUDE_CLI = process.env.CLAUDE_CLI_PATH || '/root/.local/bin/claude';
-const WORKING_DIR = '/root/webbs';
+const CLAUDE_CLI = process.env.CLAUDE_CLI_PATH || 'claude';
+const WORKING_DIR = process.env.CLAUDE_WORKING_DIR || process.cwd();
 
 if (!BOT_TOKEN) {
   console.error('WEBBS_BOT_TOKEN missing in .env');

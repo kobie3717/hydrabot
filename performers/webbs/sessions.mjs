@@ -3,9 +3,9 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 
-const DB_PATH = '/root/webbs/data/sessions.db';
+const DB_PATH = process.env.SESSIONS_DB_PATH || join(process.env.HOME || '/root', 'webbs/data/sessions.db');
 
 // Ensure data directory exists
 const dir = dirname(DB_PATH);
