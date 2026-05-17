@@ -1,0 +1,16 @@
+[Unit]
+Description=webbs Telegram Bot - Frontend Designer
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/webbs
+ExecStart=/usr/bin/node /root/webbs/bot.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

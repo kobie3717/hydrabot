@@ -16,3 +16,4 @@ performers/*/memory/*.db
 *-identity.json
 circus.db
 aiiq-sync-state*.json
+data/
