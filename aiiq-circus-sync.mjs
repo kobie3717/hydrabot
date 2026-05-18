@@ -75,12 +75,27 @@ async function queryCandidates(excludeIds) {
   // Each bot has its own DB — no project filtering needed
   const projectClause = '';
 
-  // All bots include 'learning' category — bots primarily store learned facts
-  // 007 uses lower access threshold since recon facts are less repeated
-  const categories = "('architecture','decision','error','workflow','preference','learning')";
+  // Fast categories skip Circus embedding pipeline (no 95-130s CPU cost).
+  // Slow categories (architecture/decision/error/preference) trigger embedding — batched separately at lower limit.
+  const fastCategories = "('learning','workflow','fact')";
+  const slowCategories = "('architecture','decision','error','preference')";
   const minAccess = AGENT_NAME === '007' ? 2 : MIN_ACCESS;
 
-  const sql = `SELECT json_object('id',id,'content',content,'category',category,'access_count',access_count) FROM memories WHERE active=1 AND access_count>=${minAccess} AND category IN ${categories} AND length(content) >= 10 ${inClause} ${projectClause} ORDER BY access_count DESC LIMIT ${BATCH_SIZE};`;
+  // Prioritise fast categories (up to BATCH_SIZE), then fill remaining slots with slow ones (max 3)
+  // SQLite requires ORDER BY inside a subquery when using UNION ALL
+  const sql = `
+    SELECT * FROM (
+      SELECT json_object('id',id,'content',content,'category',category,'access_count',access_count,'_slow',0) FROM memories
+      WHERE active=1 AND access_count>=${minAccess} AND category IN ${fastCategories} AND length(content) >= 10 ${inClause} ${projectClause}
+      ORDER BY access_count DESC LIMIT ${BATCH_SIZE}
+    )
+    UNION ALL
+    SELECT * FROM (
+      SELECT json_object('id',id,'content',content,'category',category,'access_count',access_count,'_slow',1) FROM memories
+      WHERE active=1 AND access_count>=${minAccess} AND category IN ${slowCategories} AND length(content) >= 10 ${inClause} ${projectClause}
+      ORDER BY access_count DESC LIMIT 3
+    );
+  `;
 
   const { stdout } = await execFileAsync('sqlite3', [AIIQ_DB, sql], { timeout: 10000 });
 
@@ -105,6 +120,10 @@ async function promote(mem, ringToken) {
   const confidence = Math.min(0.92, 0.70 + (mem.access_count * 0.02));
   const content    = mem.content.slice(0, 1000);
 
+  // Slow categories trigger CPU embedding (95-130s) — use generous timeout
+  const SLOW_CATS = new Set(['architecture', 'decision', 'error', 'preference']);
+  const timeoutMs = SLOW_CATS.has(mem.category) ? 200_000 : 20_000;
+
   const res = await fetch(`${CIRCUS_URL}/api/v1/memory-commons/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ringToken}` },
@@ -115,7 +134,7 @@ async function promote(mem, ringToken) {
       confidence,
       provenance: { reasoning: `Promoted from AI-IQ (accessed ${mem.access_count}×, id: ${mem.id})` },
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   return res.ok;
