@@ -300,7 +300,7 @@ export class Graph {
   static deserialize(jsonString) {
     const data = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
 
-    const graph = new Graph(data.name, {
+    const graph = new Graph(data.name || data.id || 'unnamed-graph', {
       id: data.id,
       version: data.version,
       entryNode: data.entryNode,

@@ -66,6 +66,9 @@ async def define_graph(
                 detail=f"Graph {name} version {version} already exists"
             )
 
+        # Inject name into definition so JS deserializer can reconstruct it
+        definition['name'] = name
+
         # Insert graph definition
         cursor.execute("""
             INSERT INTO graph_definitions (id, name, version, created_by, definition, created_at)

@@ -163,7 +163,7 @@ export class GraphRunner {
     await dbExec(
       `INSERT INTO node_executions (id, execution_id, node_id, node_type, state, input_data, created_at, updated_at)
        VALUES (?, ?, ?, ?, 'running', ?, ?, ?)`,
-      [nodeExecId, this.executionId, node.id, node.type, JSON.stringify(this.state), now, now]
+      [nodeExecId, this.executionId, node.id, node.type, JSON.stringify(this.state.input || {}), now, now]
     );
 
     try {
@@ -189,7 +189,7 @@ export class GraphRunner {
           result = await this.executeConditionalNode(node, nodeExecId);
           break;
         case 'passthrough':
-          result = this.state;
+          result = { ...(this.state.output || this.state.input || {}) };
           break;
         default:
           throw new Error(`Unknown node type: ${node.type}`);
