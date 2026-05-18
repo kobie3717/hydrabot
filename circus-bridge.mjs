@@ -114,15 +114,7 @@ async function verifyIdentity(agentId, ringToken) {
   }
 }
 
-/**
-const AIIQ_DB_MAP = {
-  'Claw':     join(HOME_DIR, '.claude/projects/-root/memory/memories.db'),
-  'Friday':   join(HOME_DIR, '.claude/projects/-root/memory/memories.db'),
-  '007':      join(HOME_DIR, '007-bot/data/007-memories.db'),
-  'WA-Drone': join(HOME_DIR, 'ai-memory-sqlite/memories.db'),
-  'webbs':    join(HOME_DIR, 'ai-memory-sqlite/memories.db'),
-  'Octo':     join(HOME_DIR, 'ai-memory-sqlite/memories.db'),
-};
+// AIIQ_DB_MAP intentionally omitted here — aiiq-circus-sync.mjs has its own per-bot paths
 
 async function buildPassportMetrics(name) {
   const defaults = {
