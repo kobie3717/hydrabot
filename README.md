@@ -1,6 +1,23 @@
-# HydraBot Stack
+# HydraBot
 
-A deployable multi-agent AI infrastructure — persistent memory, agent mesh, ephemeral workers, and Telegram bots powered by Claude Code CLI.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-22%2B-brightgreen.svg)
+![Python](https://img.shields.io/badge/python-3.10%2B-brightgreen.svg)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+
+**Production-grade multi-agent AI infrastructure on a $5/mo VPS — Telegram bots, agent mesh, graph orchestration, and self-healing ops.**
+
+## What Makes It Different
+
+- **Telegram-Native Multi-Agent Mesh** — Agents live in Telegram chat threads, not web dashboards. Issue commands via `/slash commands` in any group or DM. Works on any phone already in your pocket. No browser, no React app, no vendor dashboard.
+
+- **Circus Agent Mesh** — Agents aren't just functions; they hold cryptographic tokens, have persistent identities, and call each other over a REST API. One agent can register a task for another, spawn ephemeral workers, or broadcast to a shared room.
+
+- **AI-IQ: Per-Bot Isolated Memory with Cross-Agent Promotion** — Each bot gets its own SQLite vector database. High-value memories auto-promote to the shared Circus pool every 6 hours. Each agent has its own mind with optional shared consciousness.
+
+- **Ephemeral Worker Dispatch** — `bot-circus` spins up temporary Claude Code CLI processes on demand, runs a task, and terminates them. You pay per-task compute, not always-on idle.
+
+- **LangGraph-Style Graph Engine with Human-in-the-Loop over Telegram** — Full graph orchestration (7 node types: task, worker, parallel, merge, human, conditional, passthrough). Human nodes pause execution and fire a Telegram message to the operator. When they reply `/approve`, execution resumes.
 
 ## Architecture
 
@@ -36,11 +53,11 @@ AI-IQ (memory-tool CLI)
 - A Telegram bot token from [@BotFather](https://t.me/BotFather)
 - Your Telegram user ID from [@userinfobot](https://t.me/userinfobot)
 
-## Install
+## Quick Start
 
 ```bash
 # 1. Clone the repo
-git clone <repo-url> /opt/hydrabot
+git clone https://github.com/kobie3717/hydrabot.git /opt/hydrabot
 
 # 2. Run the installer (as root or with sudo)
 sudo HYDRABOT_DIR=/opt/hydrabot bash /opt/hydrabot/deploy/install.sh
@@ -124,12 +141,32 @@ hydrabot/
 ├── bots/
 │   └── template/              # Bot starter template
 ├── circus-bridge.mjs          # Circus integration module
+├── graph-engine/              # Graph orchestration engine
 └── docs/
     ├── architecture.md
     ├── configuration.md
     └── ai-iq.md
 ```
 
+## Bot Template Structure
+
+Each bot in `bots/` follows this pattern:
+
+```
+bots/mybot/
+├── bot.mjs              # Main entry point (Grammy bot)
+├── commands/            # Slash command handlers
+├── handlers/            # Message/callback handlers
+├── .env                 # Bot config (token, user ID, etc.)
+└── package.json         # Dependencies
+```
+
+## Contributing
+
+PRs welcome! Open an issue first for large changes. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+For architecture and design decisions, check the `docs/` directory.
+
 ## License
 
-Private — All Rights Reserved
+MIT License — see [LICENSE](LICENSE)
