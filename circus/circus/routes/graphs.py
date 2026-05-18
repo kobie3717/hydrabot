@@ -149,10 +149,12 @@ async def run_graph(
     import shutil
 
     node_bin = shutil.which('node') or 'node'
-    graph_engine_script = os.path.join(
-        os.path.dirname(__file__), '..', '..', '..', 'graph-engine', 'run-execution.mjs'
+    # Support GRAPH_ENGINE_DIR env var; fall back to hydrabot path
+    graph_engine_dir = os.environ.get(
+        'GRAPH_ENGINE_DIR',
+        os.path.join(os.path.expanduser('~'), 'hydrabot', 'graph-engine')
     )
-    graph_engine_script = os.path.normpath(graph_engine_script)
+    graph_engine_script = os.path.join(graph_engine_dir, 'run-execution.mjs')
 
     env = os.environ.copy()
     env['GRAPH_AGENT_ID'] = agent_id

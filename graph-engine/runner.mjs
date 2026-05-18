@@ -177,40 +177,20 @@ export class GraphRunner {
           setTimeout(() => reject(new Error(`Node ${node.id} timed out after ${nodeTimeout}ms`)), nodeTimeout)
         );
 
-        let result;
-      let result;
+        const executePromise = (async () => {
+          switch (node.type) {
+            case 'task':       return this.executeTaskNode(node, nodeExecId);
+            case 'worker':     return this.executeWorkerNode(node, nodeExecId);
+            case 'parallel':   return this.executeParallelNode(node, nodeExecId);
+            case 'merge':      return this.executeMergeNode(node, nodeExecId);
+            case 'human':      return this.executeHumanNode(node, nodeExecId);
+            case 'conditional': return this.executeConditionalNode(node, nodeExecId);
+            case 'passthrough': return { ...(this.state.output || this.state.input || {}) };
+            default: throw new Error(`Unknown node type: ${node.type}`);
+          }
+        })();
 
-      const executePromise = (async () => {
-        switch (node.type) {
-        case 'task':
-          result = await this.executeTaskNode(node, nodeExecId);
-          break;
-        case 'worker':
-          result = await this.executeWorkerNode(node, nodeExecId);
-          break;
-        case 'parallel':
-          result = await this.executeParallelNode(node, nodeExecId);
-          break;
-        case 'merge':
-          result = await this.executeMergeNode(node, nodeExecId);
-          break;
-        case 'human':
-          result = await this.executeHumanNode(node, nodeExecId);
-          break;
-        case 'conditional':
-          result = await this.executeConditionalNode(node, nodeExecId);
-          break;
-        case 'passthrough':
-          result = { ...(this.state.output || this.state.input || {}) };
-          break;
-        default:
-          throw new Error(`Unknown node type: ${node.type}`);
-        }
-        return result;
-      })();
-
-        // Race between execution and timeout
-        result = await Promise.race([executePromise, timeoutPromise]);
+        const result = await Promise.race([executePromise, timeoutPromise]);
 
         // Update node execution as completed
         const completedAt = new Date().toISOString();
