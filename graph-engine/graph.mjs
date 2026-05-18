@@ -17,14 +17,68 @@ const NODE_TYPES = ['task', 'worker', 'parallel', 'human', 'merge', 'conditional
 
 /**
  * Safe eval using vm module (replaces dangerous eval())
+ * HARDENED: No constructor access, no Array/Object/JSON, no prototype chain exploitation
  */
 function safeEval(code, context = {}, timeoutMs = 500) {
-  const sandbox = vm.createContext({
-    state: context,
-    output: context,
-    Math, String, Number, Boolean, Array, Object, JSON,
-    parseInt, parseFloat, isNaN, isFinite,
-  });
+  // Strip constructors and prototype chains from objects
+  function stripConstructors(obj) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    const clean = Object.create(null);
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      clean[key] = typeof val === 'object' && val !== null ? stripConstructors(val) : val;
+    }
+    return clean;
+  }
+
+  // Create completely isolated context
+  const cleanContext = stripConstructors(JSON.parse(JSON.stringify(context)));
+
+  const sandbox = vm.createContext(Object.create(null));
+  sandbox.state = cleanContext;
+  sandbox.output = cleanContext;
+
+  // Explicitly block dangerous globals that VM might expose
+  sandbox.Array = undefined;
+  sandbox.Object = undefined;
+  sandbox.Function = undefined;
+  sandbox.eval = undefined;
+  sandbox.globalThis = undefined;
+  sandbox.global = undefined;
+  sandbox.process = undefined;
+  sandbox.require = undefined;
+  sandbox.this = undefined;
+
+  // Define safe helpers WITHOUT constructor access
+  const makeSafe = (fn) => {
+    const safe = function(...args) { return fn(...args); };
+    Object.defineProperty(safe, 'constructor', { value: undefined, writable: false, enumerable: false });
+    return safe;
+  };
+
+  sandbox.parseInt = makeSafe(parseInt);
+  sandbox.parseFloat = makeSafe(parseFloat);
+  sandbox.isNaN = makeSafe(isNaN);
+  sandbox.isFinite = makeSafe(isFinite);
+  sandbox.String = makeSafe(String);
+  sandbox.Number = makeSafe(Number);
+  sandbox.Boolean = makeSafe(Boolean);
+
+  // Math object with stripped constructor
+  const safeMath = Object.create(null);
+  safeMath.abs = Math.abs;
+  safeMath.ceil = Math.ceil;
+  safeMath.floor = Math.floor;
+  safeMath.round = Math.round;
+  safeMath.max = Math.max;
+  safeMath.min = Math.min;
+  safeMath.pow = Math.pow;
+  safeMath.sqrt = Math.sqrt;
+  safeMath.log = Math.log;
+  safeMath.random = Math.random;
+  safeMath.PI = Math.PI;
+  sandbox.Math = safeMath;
+
   try {
     return vm.runInContext(code, sandbox, { timeout: timeoutMs });
   } catch (err) {

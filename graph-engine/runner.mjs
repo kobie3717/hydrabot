@@ -5,41 +5,35 @@
  * Supports all node types: task, worker, parallel, merge, human, conditional, passthrough.
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import vm from 'vm';
-
-const execFileAsync = promisify(execFile);
 
 const CIRCUS_DB = process.env.CIRCUS_DB || join(process.env.HOME || '/root', '.circus/circus.db');
 const CIRCUS_URL = process.env.CIRCUS_URL || 'http://localhost:6200';
 const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || join(process.env.HOME || '/root', 'hydrabot/bot-circus');
 
 /**
- * SQL escape helper for SQLite string literals
+ * Database connection singleton
  */
-function sqlEscape(str) {
-  if (typeof str !== 'string') return '';
-  return str.replace(/'/g, "''").replace(/\0/g, '');
+let _db = null;
+function getDb() {
+  if (!_db) {
+    _db = new DatabaseSync(CIRCUS_DB);
+    _db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=15000;');
+  }
+  return _db;
 }
 
 /**
- * Write to DB via sqlite3 CLI
+ * Write to DB using parameterized queries (prevents SQL injection)
  */
 async function dbExec(sql, params = []) {
-  // Replace ? placeholders with escaped values
-  let finalSql = sql;
-  for (const param of params) {
-    const escaped = typeof param === 'string' ? `'${sqlEscape(param)}'` : String(param);
-    finalSql = finalSql.replace('?', escaped);
-  }
-
   try {
-    const { stdout, stderr } = await execFileAsync('sqlite3', [CIRCUS_DB, finalSql], { timeout: 10000 });
-    if (stderr) console.error('[GraphRunner] sqlite3 stderr:', stderr);
-    return stdout;
+    const db = getDb();
+    const stmt = db.prepare(sql);
+    stmt.run(...params);
   } catch (err) {
     console.error('[GraphRunner] dbExec failed:', err.message);
     throw err;
@@ -47,18 +41,13 @@ async function dbExec(sql, params = []) {
 }
 
 /**
- * Query DB and return JSON rows
+ * Query DB and return rows using parameterized queries (prevents SQL injection)
  */
 async function dbQuery(sql, params = []) {
-  let finalSql = sql;
-  for (const param of params) {
-    const escaped = typeof param === 'string' ? `'${sqlEscape(param)}'` : String(param);
-    finalSql = finalSql.replace('?', escaped);
-  }
-
   try {
-    const { stdout } = await execFileAsync('sqlite3', [CIRCUS_DB, '-json', finalSql], { timeout: 10000 });
-    return stdout.trim() ? JSON.parse(stdout) : [];
+    const db = getDb();
+    const stmt = db.prepare(sql);
+    return stmt.all(...params);
   } catch (err) {
     console.error('[GraphRunner] dbQuery failed:', err.message);
     return [];
@@ -74,16 +63,69 @@ function sleep(ms) {
 
 /**
  * Safe eval using vm module (replaces dangerous eval())
+ * HARDENED: No constructor access, no Array/Object/JSON, no prototype chain exploitation
  * Restricts context to state data only, no system access
  */
-function safeEval(code, context, timeoutMs = 500) {
-  const sandbox = vm.createContext({
-    state: context,
-    output: context,
-    // Safe math/string helpers only
-    Math, String, Number, Boolean, Array, Object, JSON,
-    parseInt, parseFloat, isNaN, isFinite,
-  });
+function safeEval(code, context = {}, timeoutMs = 500) {
+  // Strip constructors and prototype chains from objects
+  function stripConstructors(obj) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    const clean = Object.create(null);
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      clean[key] = typeof val === 'object' && val !== null ? stripConstructors(val) : val;
+    }
+    return clean;
+  }
+
+  // Create completely isolated context
+  const cleanContext = stripConstructors(JSON.parse(JSON.stringify(context)));
+
+  const sandbox = vm.createContext(Object.create(null));
+  sandbox.state = cleanContext;
+  sandbox.output = cleanContext;
+
+  // Explicitly block dangerous globals that VM might expose
+  sandbox.Array = undefined;
+  sandbox.Object = undefined;
+  sandbox.Function = undefined;
+  sandbox.eval = undefined;
+  sandbox.globalThis = undefined;
+  sandbox.global = undefined;
+  sandbox.process = undefined;
+  sandbox.require = undefined;
+  sandbox.this = undefined;
+
+  // Define safe helpers WITHOUT constructor access
+  const makeSafe = (fn) => {
+    const safe = function(...args) { return fn(...args); };
+    Object.defineProperty(safe, 'constructor', { value: undefined, writable: false, enumerable: false });
+    return safe;
+  };
+
+  sandbox.parseInt = makeSafe(parseInt);
+  sandbox.parseFloat = makeSafe(parseFloat);
+  sandbox.isNaN = makeSafe(isNaN);
+  sandbox.isFinite = makeSafe(isFinite);
+  sandbox.String = makeSafe(String);
+  sandbox.Number = makeSafe(Number);
+  sandbox.Boolean = makeSafe(Boolean);
+
+  // Math object with stripped constructor
+  const safeMath = Object.create(null);
+  safeMath.abs = Math.abs;
+  safeMath.ceil = Math.ceil;
+  safeMath.floor = Math.floor;
+  safeMath.round = Math.round;
+  safeMath.max = Math.max;
+  safeMath.min = Math.min;
+  safeMath.pow = Math.pow;
+  safeMath.sqrt = Math.sqrt;
+  safeMath.log = Math.log;
+  safeMath.random = Math.random;
+  safeMath.PI = Math.PI;
+  sandbox.Math = safeMath;
+
   try {
     return vm.runInContext(code, sandbox, { timeout: timeoutMs });
   } catch (err) {
@@ -568,21 +610,47 @@ export class GraphRunner {
   }
 
   /**
-   * Update execution record
+   * Update execution record (using parameterized queries to prevent SQL injection)
    */
   async updateExecution(state, updates = {}) {
     const now = new Date().toISOString();
-    const fields = [`state = '${state}'`, `updated_at = '${now}'`];
+    const fields = [];
+    const values = [];
 
-    if (updates.currentNode) fields.push(`current_node = '${sqlEscape(updates.currentNode)}'`);
-    if (updates.executionPath) fields.push(`execution_path = '${sqlEscape(updates.executionPath)}'`);
-    if (updates.outputData) fields.push(`output_data = '${sqlEscape(updates.outputData)}'`);
-    if (updates.error) fields.push(`error = '${sqlEscape(updates.error)}'`);
-    if (updates.completedAt) fields.push(`completed_at = '${updates.completedAt}'`);
+    // Always update state and updated_at
+    fields.push('state = ?');
+    values.push(state);
+    fields.push('updated_at = ?');
+    values.push(now);
+
+    // Add optional fields with parameterized values
+    if (updates.currentNode !== undefined) {
+      fields.push('current_node = ?');
+      values.push(updates.currentNode);
+    }
+    if (updates.executionPath !== undefined) {
+      fields.push('execution_path = ?');
+      values.push(updates.executionPath);
+    }
+    if (updates.outputData !== undefined) {
+      fields.push('output_data = ?');
+      values.push(updates.outputData);
+    }
+    if (updates.error !== undefined) {
+      fields.push('error = ?');
+      values.push(updates.error);
+    }
+    if (updates.completedAt !== undefined) {
+      fields.push('completed_at = ?');
+      values.push(updates.completedAt);
+    }
+
+    // Add execution ID as final parameter
+    values.push(this.executionId);
 
     await dbExec(
       `UPDATE graph_executions SET ${fields.join(', ')} WHERE id = ?`,
-      [this.executionId]
+      values
     );
   }
 
