@@ -478,6 +478,8 @@ def init_database(db_path: Optional[Path] = None) -> None:
     run_v13_migration(db_path)
     # Run v14 migration for bandit routing
     run_v14_migration(db_path)
+    # Run v15 migration for graph orchestration
+    run_v15_migration(db_path)
 
     # Auto-seed owner key if configured
     conn = sqlite3.connect(str(db_path))
@@ -1014,6 +1016,126 @@ def run_v14_migration(db_path: Optional[Path] = None) -> None:
     except Exception as e:
         conn.rollback()
         logger.error("v14 migration failed: %s", e)
+        raise
+    finally:
+        conn.close()
+
+
+def run_v15_migration(db_path: Optional[Path] = None) -> None:
+    """Run v15 migration: Graph orchestration tables."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+    db_path = db_path or settings.database_path
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cursor = conn.cursor()
+
+        # Check if graph_definitions table already exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_definitions'")
+        if cursor.fetchone():
+            logger.debug("v15 migration: graph tables already exist, skipping")
+            return
+
+        # Execute migration SQL
+        cursor.executescript("""
+            CREATE TABLE IF NOT EXISTS graph_definitions (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1,
+                created_by TEXT NOT NULL,
+                definition TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE (name, version)
+            );
+
+            CREATE TABLE IF NOT EXISTS graph_executions (
+                id TEXT PRIMARY KEY,
+                graph_id TEXT NOT NULL,
+                graph_version INTEGER NOT NULL,
+                started_by TEXT NOT NULL,
+                state TEXT NOT NULL DEFAULT 'running',
+                input_data TEXT NOT NULL,
+                output_data TEXT,
+                current_node TEXT,
+                execution_path TEXT NOT NULL DEFAULT '[]',
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                completed_at TEXT,
+                CHECK (state IN ('running', 'paused', 'completed', 'failed', 'canceled'))
+            );
+
+            CREATE TABLE IF NOT EXISTS node_executions (
+                id TEXT PRIMARY KEY,
+                execution_id TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                node_type TEXT NOT NULL,
+                attempt INTEGER NOT NULL DEFAULT 1,
+                state TEXT NOT NULL DEFAULT 'pending',
+                input_data TEXT NOT NULL,
+                output_data TEXT,
+                task_id TEXT,
+                worker_result TEXT,
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                completed_at TEXT,
+                CHECK (state IN ('pending', 'running', 'completed', 'failed', 'skipped')),
+                CHECK (node_type IN ('task', 'worker', 'parallel', 'human', 'merge', 'conditional', 'passthrough'))
+            );
+
+            CREATE TABLE IF NOT EXISTS graph_checkpoints (
+                id TEXT PRIMARY KEY,
+                execution_id TEXT NOT NULL,
+                node_execution_id TEXT NOT NULL,
+                checkpoint_index INTEGER NOT NULL,
+                state_snapshot TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE (execution_id, checkpoint_index)
+            );
+
+            CREATE TABLE IF NOT EXISTS graph_human_approvals (
+                id TEXT PRIMARY KEY,
+                execution_id TEXT NOT NULL,
+                node_execution_id TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                options TEXT,
+                response TEXT,
+                responded_by TEXT,
+                created_at TEXT NOT NULL,
+                responded_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS graph_parallel_branches (
+                id TEXT PRIMARY KEY,
+                execution_id TEXT NOT NULL,
+                parent_node_execution_id TEXT NOT NULL,
+                branch_index INTEGER NOT NULL,
+                branch_node_id TEXT NOT NULL,
+                node_execution_id TEXT,
+                state TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                CHECK (state IN ('pending', 'running', 'completed', 'failed'))
+            );
+
+            -- Indexes
+            CREATE INDEX IF NOT EXISTS idx_graph_executions_state ON graph_executions(state);
+            CREATE INDEX IF NOT EXISTS idx_graph_executions_started_by ON graph_executions(started_by);
+            CREATE INDEX IF NOT EXISTS idx_node_executions_execution_id ON node_executions(execution_id);
+            CREATE INDEX IF NOT EXISTS idx_graph_checkpoints_execution_id ON graph_checkpoints(execution_id);
+            CREATE INDEX IF NOT EXISTS idx_graph_human_approvals_execution_id ON graph_human_approvals(execution_id);
+            CREATE INDEX IF NOT EXISTS idx_graph_parallel_branches_execution_id ON graph_parallel_branches(execution_id);
+        """)
+
+        conn.commit()
+        logger.info("v15 migration: created graph orchestration tables")
+
+    except Exception as e:
+        conn.rollback()
+        logger.error("v15 migration failed: %s", e)
         raise
     finally:
         conn.close()

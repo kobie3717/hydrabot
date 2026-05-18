@@ -1104,3 +1104,55 @@ export function enableAutoReconnect(name, role, intervalMs = 5 * 60_000) {
     }
   }, intervalMs);
 }
+
+// ── Graph Orchestration ────────────────────────────────────────────────────
+
+/**
+ * Define a graph workflow and persist to Circus.
+ * @param {Array} nodes - Array of {id, type, config}
+ * @param {Array} edges - Array of {from, to, condition?}
+ * @param {Object} options - {name, entryNode, metadata}
+ * @returns {Promise<string>} graphId
+ */
+export async function defineGraph(nodes, edges, options = {}) {
+  const { defineGraph: _define, Graph, GraphNode, GraphEdge } = await import('./graph-engine/index.mjs');
+  const graph = new Graph(options.name || 'unnamed-graph', options);
+  for (const n of nodes) graph.addNode(new GraphNode(n.id, n.type, n.config || {}));
+  for (const e of edges) graph.addEdge(new GraphEdge(e.from, e.to, e.condition || null));
+  if (options.entryNode) graph.setEntryNode(options.entryNode);
+  return _define(graph, { ringToken: _ringToken, agentId: _agentId });
+}
+
+/**
+ * Run a graph execution.
+ * @param {string} graphId - Graph ID or name
+ * @param {Object} input - Input data
+ * @param {Object} options - Additional options
+ * @returns {Promise<string>} executionId
+ */
+export async function runGraph(graphId, input, options = {}) {
+  const { runGraph: _run } = await import('./graph-engine/index.mjs');
+  return _run(graphId, input, { ringToken: _ringToken, agentId: _agentId, ...options });
+}
+
+/**
+ * Resume a paused graph execution (human approval).
+ * @param {string} executionId - Execution ID
+ * @param {string} approvalId - Approval ID
+ * @param {string} response - Human response
+ * @returns {Promise<void>}
+ */
+export async function resumeGraph(executionId, approvalId, response) {
+  const { resumeGraph: _resume } = await import('./graph-engine/index.mjs');
+  return _resume(executionId, approvalId, response, { respondedBy: _agentId });
+}
+
+/**
+ * List graph executions for this agent.
+ * @param {Object} filters - {state, limit}
+ * @returns {Promise<Array>}
+ */
+export async function listGraphExecutions(filters = {}) {
+  const { listGraphExecutions: _list } = await import('./graph-engine/index.mjs');
+  return _list(filters);
+}
