@@ -153,7 +153,7 @@ export class GraphRunner {
   }
 
   /**
-   * Execute a single node
+   * Execute a single node with retry logic
    */
   async executeNode(node) {
     const nodeExecId = `nexec-${randomUUID()}`;
@@ -161,15 +161,27 @@ export class GraphRunner {
 
     // Create node execution record
     await dbExec(
-      `INSERT INTO node_executions (id, execution_id, node_id, node_type, state, input_data, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'running', ?, ?, ?)`,
+      `INSERT INTO node_executions (id, execution_id, node_id, node_type, state, input_data, created_at, updated_at, attempt)
+       VALUES (?, ?, ?, ?, 'running', ?, ?, ?, 1)`,
       [nodeExecId, this.executionId, node.id, node.type, JSON.stringify(this.state.input || {}), now, now]
     );
 
-    try {
+    const maxRetries = node.config.maxRetries ?? this.options.maxRetries ?? 2;
+    let lastErr;
+
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+      try {
+        // Set up node timeout
+        const nodeTimeout = (node.config.timeout || this.options.nodeTimeout || 5 * 60 * 1000);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Node ${node.id} timed out after ${nodeTimeout}ms`)), nodeTimeout)
+        );
+
+        let result;
       let result;
 
-      switch (node.type) {
+      const executePromise = (async () => {
+        switch (node.type) {
         case 'task':
           result = await this.executeTaskNode(node, nodeExecId);
           break;
@@ -193,26 +205,47 @@ export class GraphRunner {
           break;
         default:
           throw new Error(`Unknown node type: ${node.type}`);
+        }
+        return result;
+      })();
+
+        // Race between execution and timeout
+        result = await Promise.race([executePromise, timeoutPromise]);
+
+        // Update node execution as completed
+        const completedAt = new Date().toISOString();
+        await dbExec(
+          `UPDATE node_executions SET state = 'completed', output_data = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
+          [JSON.stringify(result), completedAt, completedAt, nodeExecId]
+        );
+
+        return result;
+
+      } catch (err) {
+        lastErr = err;
+
+        if (attempt <= maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
+          console.warn(`[GraphRunner] Node ${node.id} attempt ${attempt} failed, retrying in ${delay}ms:`, err.message);
+
+          // Update attempt counter in DB
+          await dbExec(
+            `UPDATE node_executions SET attempt = ?, updated_at = ? WHERE id = ?`,
+            [attempt + 1, new Date().toISOString(), nodeExecId]
+          );
+
+          await new Promise(r => setTimeout(r, delay));
+        }
       }
-
-      // Update node execution as completed
-      const completedAt = new Date().toISOString();
-      await dbExec(
-        `UPDATE node_executions SET state = 'completed', output_data = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
-        [JSON.stringify(result), completedAt, completedAt, nodeExecId]
-      );
-
-      return result;
-
-    } catch (err) {
-      // Update node execution as failed
-      const failedAt = new Date().toISOString();
-      await dbExec(
-        `UPDATE node_executions SET state = 'failed', error = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
-        [err.message, failedAt, failedAt, nodeExecId]
-      );
-      throw err;
     }
+
+    // All retries exhausted
+    const failedAt = new Date().toISOString();
+    await dbExec(
+      `UPDATE node_executions SET state = 'failed', error = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
+      [lastErr.message, failedAt, failedAt, nodeExecId]
+    );
+    throw lastErr;
   }
 
   /**
@@ -343,14 +376,28 @@ export class GraphRunner {
       }
     });
 
-    const results = await Promise.all(branchPromises);
+    const settled = await Promise.allSettled(branchPromises);
+    const results = [];
+    const errors = [];
 
-    // Store results in parallel context
+    for (const s of settled) {
+      if (s.status === 'fulfilled') {
+        results.push(s.value);
+      } else {
+        errors.push(s.reason?.message || 'unknown error');
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn(`[GraphRunner] ${errors.length} parallel branch(es) failed:`, errors.join('; '));
+    }
+
+    // Store results in parallel context (even if some failed)
     for (const { branchNodeId, result } of results) {
       this.state.parallelContext.set(branchNodeId, result);
     }
 
-    return { branches: results };
+    return { branches: results, errors };
   }
 
   /**
@@ -392,11 +439,34 @@ export class GraphRunner {
 
     console.log(`[GraphRunner] Waiting for human approval: ${approvalId}`);
 
-    // Poll for response
+    // Notify via Telegram if configured
+    const telegramAdminId = process.env.TELEGRAM_ADMIN_ID;
+    const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+    if (telegramAdminId && telegramBotToken) {
+      const optionsList = options ? `\nOptions: ${options.join(' | ')}` : '';
+      const text = `⏸ Graph approval needed\n\nExecution: \`${this.executionId}\`\nApproval: \`${approvalId}\`\n\n${prompt}${optionsList}\n\nReply with:\n/approve ${this.executionId} ${approvalId} <your response>`;
+      try {
+        await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: telegramAdminId, text, parse_mode: 'Markdown' }),
+          signal: AbortSignal.timeout(8000),
+        });
+      } catch (e) {
+        console.warn('[GraphRunner] Telegram notify failed:', e.message);
+      }
+    }
+
+    // Poll for response with configurable timeout
+    const maxPollMs = node.config.timeout || 24 * 60 * 60 * 1000; // default 24 hours
+    const startPoll = Date.now();
     let attempts = 0;
-    const maxAttempts = 86400; // 24 hours at 3s intervals
+    const maxAttempts = 86400; // safety cap
 
     while (attempts < maxAttempts) {
+      if (Date.now() - startPoll > maxPollMs) {
+        throw new Error(`Human node ${node.id} timed out after ${maxPollMs}ms`);
+      }
       await sleep(3000);
       attempts++;
 

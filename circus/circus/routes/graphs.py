@@ -143,8 +143,33 @@ async def run_graph(
 
         conn.commit()
 
-    # TODO: Trigger async execution via graph-engine
-    # For now, return execution ID immediately
+    # Spawn graph execution as detached background process
+    import subprocess
+    import os
+    import shutil
+
+    node_bin = shutil.which('node') or 'node'
+    graph_engine_script = os.path.join(
+        os.path.dirname(__file__), '..', '..', '..', 'graph-engine', 'run-execution.mjs'
+    )
+    graph_engine_script = os.path.normpath(graph_engine_script)
+
+    env = os.environ.copy()
+    env['GRAPH_AGENT_ID'] = agent_id
+    env['GRAPH_RING_TOKEN'] = ''  # runner uses Circus DB directly
+
+    try:
+        subprocess.Popen(
+            [node_bin, graph_engine_script, execution_id, resolved_graph_id],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,  # detach from parent
+            env=env
+        )
+    except Exception as e:
+        # Non-fatal — execution record created, can be manually triggered
+        import sys
+        print(f"[graphs] Warning: Failed to spawn execution: {e}", file=sys.stderr)
 
     return {
         "execution_id": execution_id,

@@ -237,5 +237,33 @@ export async function cancelGraph(executionId) {
   console.log(`[graph-engine] Execution ${executionId} canceled`);
 }
 
+/**
+ * Run graph by ID (for spawned execution processes)
+ * @param {string} executionId - Execution ID
+ * @param {string} graphId - Graph ID
+ * @param {Object} opts - Options (ringToken, agentId)
+ * @returns {Promise<Object>} execution result
+ */
+export async function runGraphById(executionId, graphId, opts = {}) {
+  const defRows = await dbQuery(
+    `SELECT definition, version FROM graph_definitions WHERE id = ?`,
+    [graphId]
+  );
+  if (defRows.length === 0) throw new Error(`Graph ${graphId} not found`);
+
+  const graph = Graph.deserialize(defRows[0].definition);
+
+  // Load input from existing execution record
+  const execRows = await dbQuery(
+    `SELECT input_data FROM graph_executions WHERE id = ?`,
+    [executionId]
+  );
+  if (execRows.length === 0) throw new Error(`Execution ${executionId} not found`);
+  const input = JSON.parse(execRows[0].input_data);
+
+  const runner = new GraphRunner(executionId, graph, input, opts);
+  return runner.run();
+}
+
 // Re-export graph classes
 export { Graph, GraphNode, GraphEdge };

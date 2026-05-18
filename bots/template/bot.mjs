@@ -47,6 +47,48 @@ bot.use(async (ctx, next) => {
   await next();
 });
 
+// ── Graph Orchestration Example ─────────────────────────────────────────────
+// Uncomment to define and run a graph:
+//
+// const { defineGraph, runGraph } = await import(BRIDGE_PATH);
+//
+// const graphId = await defineGraph(
+//   [
+//     { id: 'research', type: 'worker', config: { botId: 'octo', messageBuilder: (s) => `Research: ${s.query}` } },
+//     { id: 'approve',  type: 'human',  config: { prompt: 'Approve research?', timeout: 3600000 } },
+//     { id: 'publish',  type: 'task',   config: { toAgentId: 'target-agent-id', taskType: 'publish' } },
+//   ],
+//   [
+//     { from: 'research', to: 'approve' },
+//     { from: 'approve',  to: 'publish', condition: (o) => o.approve_response === 'yes' },
+//   ],
+//   { name: 'research-workflow', entryNode: 'research' }
+// );
+// const execId = await runGraph(graphId, { query: 'AI trends 2026' });
+// console.log('Graph started:', execId);
+
+// ── Commands ─────────────────────────────────────────────────────────────────
+
+bot.command('approve', async (ctx) => {
+  const text = ctx.message.text;
+  const parts = text.split(' ');
+  const [, executionId, approvalId, ...responseParts] = parts;
+  const response = responseParts.join(' ');
+
+  if (!executionId || !approvalId || !response) {
+    await ctx.reply('Usage: /approve <executionId> <approvalId> <response>');
+    return;
+  }
+
+  try {
+    const { resumeGraph } = await import(BRIDGE_PATH);
+    await resumeGraph(executionId, approvalId, response);
+    await ctx.reply(`✅ Graph resumed with: "${response}"`);
+  } catch (err) {
+    await ctx.reply(`❌ Failed to resume graph: ${err.message}`);
+  }
+});
+
 // ── Message Handler ──────────────────────────────────────────────────────────
 
 bot.on('message:text', async (ctx) => {

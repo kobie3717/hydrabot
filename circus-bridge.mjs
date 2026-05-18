@@ -433,10 +433,10 @@ export async function publishPreference(field, value, confidence, reasoning) {
     const memoryId = hexOut.trim();
 
     // Sign with Ed25519 via Python (Circus's canonicalize_for_signing)
-    // Pass variables via sys.argv to prevent command injection
+    // Pass circusPath via sys.argv to prevent command injection
     const circusPath = process.env.CIRCUS_DIR || join(HOME_DIR, 'circus');
     const signScript = [
-      `import sys, base64, json; sys.path.insert(0, "${circusPath}")`,
+      'import sys, base64, json; sys.path.insert(0, sys.argv[6])',
       'from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey',
       'from cryptography.hazmat.primitives import serialization',
       'from circus.services.bundle_signing import canonicalize_for_signing',
@@ -447,7 +447,7 @@ export async function publishPreference(field, value, confidence, reasoning) {
       'print(base64.b64encode(sig).decode())'
     ].join('\n');
 
-    const { stdout: sigOut } = await execFileAsync('python3', ['-c', signScript, OWNER_KEY, _agentId, memoryId, OWNER_ID, timestamp], { timeout: 10000 });
+    const { stdout: sigOut } = await execFileAsync('python3', ['-c', signScript, OWNER_KEY, _agentId, memoryId, OWNER_ID, timestamp, circusPath], { timeout: 10000 });
     const signature = sigOut.trim();
 
     const body = {

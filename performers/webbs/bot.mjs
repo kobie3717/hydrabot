@@ -243,6 +243,28 @@ bot.command('clear', ctx => {
   ctx.reply(cleared ? '🕸️ Session cleared.' : '🕸️ No session to clear.');
 });
 
+bot.command('approve', async (ctx) => {
+  const text = ctx.message.text;
+  const parts = text.split(' ');
+  const [, executionId, approvalId, ...responseParts] = parts;
+  const response = responseParts.join(' ');
+
+  if (!executionId || !approvalId || !response) {
+    await ctx.reply('Usage: /approve <executionId> <approvalId> <response>');
+    return;
+  }
+
+  try {
+    const CIRCUS_BRIDGE_PATH = process.env.CIRCUS_BRIDGE_PATH ||
+      new URL('../../circus-bridge.mjs', import.meta.url).pathname;
+    const { resumeGraph } = await import(CIRCUS_BRIDGE_PATH);
+    await resumeGraph(executionId, approvalId, response);
+    await ctx.reply(`✅ Graph resumed with: "${response}"`);
+  } catch (err) {
+    await ctx.reply(`❌ Failed to resume graph: ${err.message}`);
+  }
+});
+
 async function handleDesignRequest(ctx, msg, imagePath = null) {
   const userId = ctx.from.id;
   const cleanupFiles = imagePath ? [imagePath] : [];

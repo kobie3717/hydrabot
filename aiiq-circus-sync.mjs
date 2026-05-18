@@ -27,7 +27,11 @@ const MIN_ACCESS  = 3;
 // Agent to sync as — pass as CLI arg: node aiiq-circus-sync.mjs Friday assistant
 const AGENT_NAME = process.argv[2] || 'Claw';
 const AGENT_ROLE = process.argv[3] || 'builder';
-const AIIQ_DB    = AIIQ_DB_MAP[AGENT_NAME] || '/root/ai-iq/memories.db';
+const AIIQ_DB    = AIIQ_DB_MAP[AGENT_NAME];
+if (!AIIQ_DB) {
+  console.error(`[Sync] Unknown agent: ${AGENT_NAME}. Available: ${Object.keys(AIIQ_DB_MAP).join(', ')}`);
+  process.exit(1);
+}
 const STATE_DIR  = process.env.CIRCUS_STATE_DIR || `${process.env.HOME || '/root'}/.circus`;
 const SYNC_STATE = `${STATE_DIR}/aiiq-sync-state-${AGENT_NAME.toLowerCase()}.json`;
 

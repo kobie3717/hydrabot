@@ -1026,12 +1026,15 @@ async def get_conflicts(
 # Cross-Agent Shared Learning API (W11)
 
 
+from fastapi import Header
+
 @router.get("/search")
 async def search_shared_knowledge(
     request: Request,
     q: str,
     limit: int = 3,
-    owner_id: Optional[str] = None
+    owner_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
 ):
     """
     Search shared memories (no auth required - read-only, public knowledge).
@@ -1040,8 +1043,30 @@ async def search_shared_knowledge(
     Score: confidence × (1 - hop_count × 0.1) — capped at 0.0
     Returns top `limit` results (default 3, max 10).
 
-    Optional owner_id filter for owner-specific knowledge.
+    Optional owner_id filter for owner-specific knowledge (requires auth).
     """
+    # Require auth for owner_id filtering
+    if owner_id:
+        if not authorization or not authorization.startswith('Bearer '):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required for owner_id filter"
+            )
+        # Verify token
+        token = authorization.removeprefix('Bearer ')
+        with get_db() as conn:
+            cursor = conn.cursor()
+            from datetime import datetime
+            cursor.execute(
+                'SELECT agent_id FROM active_tokens WHERE token = ? AND expires_at > ?',
+                (token, datetime.utcnow().isoformat())
+            )
+            if not cursor.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired token"
+                )
+
     _check_search_rate(request.client.host or "unknown")
     if not settings.memory_commons_enabled:
         raise HTTPException(
