@@ -354,7 +354,7 @@ async function handleAuthFailure() {
 // ── Preference Reading ────────────────────────────────────────────────────────
 
 /**
- * Get active preferences for kobus from Circus DB directly (fast, local).
+ * Get active preferences for owner from Circus DB directly (fast, local).
  * Returns: { "user.language_preference": "af", ... }
  */
 export async function getActivePreferences() {

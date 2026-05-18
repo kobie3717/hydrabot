@@ -6,15 +6,18 @@
 import { spawn } from 'child_process';
 
 const AGENTS = [
-  { name: 'Claw',  role: 'builder' },
-  { name: '007',   role: 'intelligence' },
-  { name: 'Octo',  role: 'multitasker' },
+  { name: 'Claw',     role: 'builder' },
+  { name: 'Friday',   role: 'assistant' },
+  { name: '007',      role: 'intelligence' },
+  { name: 'Octo',     role: 'multitasker' },
+  { name: 'WA-Drone', role: 'wa-drone' },
+  { name: 'webbs',    role: 'builder' },
 ];
 
 function run(name, role) {
   return new Promise((resolve) => {
     console.log(`\n[Cron] ── Syncing ${name} ──`);
-    const proc = spawn('node', ['/root/aiiq-circus-sync.mjs', name, role], {
+    const proc = spawn('node', [new URL('../aiiq-circus-sync.mjs', import.meta.url).pathname, name, role], {
       stdio: 'inherit',
     });
     proc.on('close', (code) => {

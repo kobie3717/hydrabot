@@ -5,36 +5,35 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { circusRegister } from '/root/circus-bridge.mjs';
+import { circusRegister } from '../circus-bridge.mjs';
 
 const execFileAsync = promisify(execFile);
 
-// Per-agent DB paths:
-// - Claw: Claude Code session DB (properly categorized architecture/decision/error memories)
-// - Friday: same session DB as Claw — global state prevents duplicate promotions
-// - 007: dedicated DB (builds up as 007 runs recon sessions)
+// Per-agent DB paths — each bot has its own isolated memory DB
+const BASE = process.env.BOTS_DIR || '/root';
 const AIIQ_DB_MAP = {
-  'Claw':     '/root/.claude/projects/-root/memory/memories.db',
-  'Friday':   '/root/.claude/projects/-root/memory/memories.db',
-  '007':      '/root/007-bot/data/007-memories.db',
-  'WA-Drone': '/root/ai-memory-sqlite/memories.db',
-  'webbs':    '/root/ai-memory-sqlite/memories.db',
-  'Octo':     '/root/ai-memory-sqlite/memories.db',
+  'Claw':     process.env.CLAW_DB     || `${BASE}/claude-telegram-bot/data/claw-memories.db`,
+  'Friday':   process.env.FRIDAY_DB   || `${BASE}/claude-telegram-bot-friday/data/friday-memories.db`,
+  '007':      process.env.BOT007_DB   || `${BASE}/007-bot/data/007-memories.db`,
+  'WA-Drone': process.env.WADRONE_DB  || `${BASE}/wa-drone-bot/data/wa-drone-memories.db`,
+  'webbs':    process.env.WEBBS_DB    || `${BASE}/webbs/data/webbs-memories.db`,
+  'Octo':     process.env.OCTO_DB     || `${BASE}/octo-bot/data/octo-memories.db`,
 };
 
-const CIRCUS_URL = 'http://localhost:6200';
+const CIRCUS_URL = process.env.CIRCUS_URL || 'http://localhost:6200';
 const BATCH_SIZE = 20;
 const MIN_ACCESS  = 3;
 
 // Agent to sync as — pass as CLI arg: node aiiq-circus-sync.mjs Friday assistant
 const AGENT_NAME = process.argv[2] || 'Claw';
 const AGENT_ROLE = process.argv[3] || 'builder';
-const AIIQ_DB    = AIIQ_DB_MAP[AGENT_NAME] || '/root/ai-memory-sqlite/memories.db';
-const SYNC_STATE = `/root/.circus/aiiq-sync-state-${AGENT_NAME.toLowerCase()}.json`;
+const AIIQ_DB    = AIIQ_DB_MAP[AGENT_NAME] || '/root/ai-iq/memories.db';
+const STATE_DIR  = process.env.CIRCUS_STATE_DIR || `${process.env.HOME || '/root'}/.circus`;
+const SYNC_STATE = `${STATE_DIR}/aiiq-sync-state-${AGENT_NAME.toLowerCase()}.json`;
 
 // Global shared state — prevents all 3 bots from promoting the same AI-IQ memory IDs.
 // All bots read this before querying candidates; the bot that promotes first wins.
-const GLOBAL_STATE = '/root/.circus/aiiq-sync-state-global.json';
+const GLOBAL_STATE = `${STATE_DIR}/aiiq-sync-state-global.json`;
 
 const DOMAIN_MAP = {
   architecture: 'knowledge.architecture',
@@ -57,7 +56,7 @@ function loadState(path) {
 
 function saveState(path, state) {
   try {
-    mkdirSync('/root/.circus', { recursive: true });
+    mkdirSync(STATE_DIR, { recursive: true });
     writeFileSync(path, JSON.stringify(state, null, 2));
   } catch (err) {
     console.error('[Sync] Failed to save state:', err.message);
@@ -69,26 +68,12 @@ async function queryCandidates(excludeIds) {
     ? `AND id NOT IN (${excludeIds.filter(id => /^\d+$/.test(String(id))).map(id => parseInt(id, 10)).join(',')})`
     : '';
 
-  // Project filters per agent:
-  // - Claw/Friday: session DB — filter junk test projects, include untagged
-  // - Octo/webbs/WA-Drone: shared DB — include their own project tag AND untagged (2184 untagged belong to these bots)
-  // - 007: dedicated DB, no filter needed
-  const JUNK_PROJECTS = "('TestProject','ProjectA','ProjectB','ProjectC')";
-  const PROJECT_FILTER_MAP = {
-    'Claw':     `(project IS NULL OR project NOT IN ${JUNK_PROJECTS})`,
-    'Friday':   `(project IS NULL OR project NOT IN ${JUNK_PROJECTS})`,
-    '007':      null,
-    'Octo':     `(project IS NULL OR project = '' OR project = 'Octo')`,
-    'webbs':    `(project IS NULL OR project = '' OR project = 'webbs') AND id NOT IN (SELECT id FROM memories WHERE project IN ('Octo','WA-Drone') AND active=1)`,
-    'WA-Drone': `(project = 'WA-Drone')`,
-  };
-  const PROJECT_FILTER = PROJECT_FILTER_MAP[AGENT_NAME];
-  const projectClause = PROJECT_FILTER ? `AND ${PROJECT_FILTER}` : '';
+  // Each bot has its own DB — no project filtering needed
+  const projectClause = '';
 
-  // 007's dedicated DB uses 'learning' category + lower access threshold since recon facts are less repeated
-  const categories = AGENT_NAME === '007'
-    ? "('architecture','decision','error','workflow','preference','learning')"
-    : "('architecture','decision','error','workflow','preference')";
+  // All bots include 'learning' category — bots primarily store learned facts
+  // 007 uses lower access threshold since recon facts are less repeated
+  const categories = "('architecture','decision','error','workflow','preference','learning')";
   const minAccess = AGENT_NAME === '007' ? 2 : MIN_ACCESS;
 
   const sql = `SELECT json_object('id',id,'content',content,'category',category,'access_count',access_count) FROM memories WHERE active=1 AND access_count>=${minAccess} AND category IN ${categories} AND length(content) >= 10 ${inClause} ${projectClause} ORDER BY access_count DESC LIMIT ${BATCH_SIZE};`;

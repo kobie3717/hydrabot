@@ -26,6 +26,17 @@ import { join, resolve as resolvePath } from 'path';
 const PERFORMERS_DIR = process.env.PERFORMERS_DIR || new URL('../performers', import.meta.url).pathname;
 const MAX_WORKERS = 10;
 const DEFAULT_TIMEOUT_MS = 120_000;
+const BOT_QUEUE_LIMIT = 5;
+
+// Path traversal validation
+function validateBotPath(absPath, performersDir) {
+  const resolvedPerformers = resolvePath(performersDir);
+  const resolvedBot = resolvePath(absPath);
+  if (!resolvedBot.startsWith(resolvedPerformers + '/')) {
+    throw new Error(`Path traversal attempt: ${absPath} outside ${performersDir}`);
+  }
+  return resolvedBot;
+}
 
 // Singleton pool — shared across all dispatch calls in the same process
 const _active = new Map();   // workerId → { proc, timer }
@@ -50,7 +61,7 @@ function _processQueue() {
 
 function _spawnWorker({ botId, workspacePath, message, resolve, reject }) {
   const id = `${botId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const abs = resolvePath(workspacePath);  // use path.resolve, not Promise resolve
+  const abs = validateBotPath(resolvePath(workspacePath), PERFORMERS_DIR);
 
   let stdout = '';
   let stderr = '';
@@ -117,7 +128,7 @@ function _spawnWorker({ botId, workspacePath, message, resolve, reject }) {
  * Ensure the performer workspace exists. Creates a minimal one if missing.
  */
 function _ensureWorkspace(botId) {
-  const dir = join(PERFORMERS_DIR, botId);
+  const dir = validateBotPath(join(PERFORMERS_DIR, botId), PERFORMERS_DIR);
   if (!existsSync(dir)) {
     mkdirSync(join(dir, 'memory'), { recursive: true });
     writeFileSync(join(dir, 'SOUL.md'), `# ${botId}\n\nYou are a sub-worker for ${botId}. Complete the assigned task and return structured output.\n`);
@@ -138,6 +149,12 @@ function _ensureWorkspace(botId) {
 export function dispatch(botId, message, opts = {}) {
   const workspacePath = _ensureWorkspace(botId);
   return new Promise((resolve, reject) => {
+    // Check per-bot queue depth limit
+    const botQueueDepth = _queue.filter(t => t.botId === botId).length;
+    if (botQueueDepth >= BOT_QUEUE_LIMIT) {
+      reject(new Error(`Queue full for bot ${botId} (${BOT_QUEUE_LIMIT} tasks pending)`));
+      return;
+    }
     _queue.push({ botId, workspacePath, message, resolve, reject, queuedAt: Date.now() });
     _processQueue();
   });
