@@ -480,6 +480,8 @@ def init_database(db_path: Optional[Path] = None) -> None:
     run_v14_migration(db_path)
     # Run v15 migration for graph orchestration
     run_v15_migration(db_path)
+    # Run v16 migration for graph audit log
+    run_v16_migration(db_path)
 
     # Auto-seed owner key if configured
     conn = sqlite3.connect(str(db_path))
@@ -1136,6 +1138,53 @@ def run_v15_migration(db_path: Optional[Path] = None) -> None:
     except Exception as e:
         conn.rollback()
         logger.error("v15 migration failed: %s", e)
+        raise
+    finally:
+        conn.close()
+
+
+def run_v16_migration(db_path: Optional[Path] = None) -> None:
+    """Run v16 migration: Graph audit log table."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+    db_path = db_path or settings.database_path
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cursor = conn.cursor()
+
+        # Check if graph_audit_log table already exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_audit_log'")
+        if cursor.fetchone():
+            logger.debug("v16 migration: graph_audit_log table already exists, skipping")
+            return
+
+        # Execute migration SQL
+        cursor.executescript("""
+            CREATE TABLE IF NOT EXISTS graph_audit_log (
+                id TEXT PRIMARY KEY,
+                execution_id TEXT NOT NULL,
+                node_id TEXT,
+                event_type TEXT NOT NULL,
+                details TEXT,
+                created_at TEXT NOT NULL,
+                CHECK (event_type IN (
+                    'graph_started', 'graph_completed', 'graph_failed', 'graph_canceled',
+                    'node_started', 'node_completed', 'node_failed', 'node_retried',
+                    'node_timed_out', 'human_paused', 'human_resumed', 'checkpoint_created',
+                    'parallel_started', 'parallel_completed'
+                ))
+            );
+            CREATE INDEX IF NOT EXISTS idx_graph_audit_execution ON graph_audit_log(execution_id, created_at);
+        """)
+
+        conn.commit()
+        logger.info("v16 migration: created graph_audit_log table")
+
+    except Exception as e:
+        conn.rollback()
+        logger.error("v16 migration failed: %s", e)
         raise
     finally:
         conn.close()

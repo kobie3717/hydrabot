@@ -9,6 +9,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
+import vm from 'vm';
 
 const execFileAsync = promisify(execFile);
 
@@ -72,6 +73,25 @@ function sleep(ms) {
 }
 
 /**
+ * Safe eval using vm module (replaces dangerous eval())
+ * Restricts context to state data only, no system access
+ */
+function safeEval(code, context, timeoutMs = 500) {
+  const sandbox = vm.createContext({
+    state: context,
+    output: context,
+    // Safe math/string helpers only
+    Math, String, Number, Boolean, Array, Object, JSON,
+    parseInt, parseFloat, isNaN, isFinite,
+  });
+  try {
+    return vm.runInContext(code, sandbox, { timeout: timeoutMs });
+  } catch (err) {
+    throw new Error(`Condition eval failed: ${err.message}`);
+  }
+}
+
+/**
  * GraphRunner executes a graph
  */
 export class GraphRunner {
@@ -96,9 +116,24 @@ export class GraphRunner {
   }
 
   /**
+   * Audit log helper
+   */
+  async audit(eventType, nodeId = null, details = null) {
+    const id = `audit-${randomUUID()}`;
+    const now = new Date().toISOString();
+    await dbExec(
+      `INSERT INTO graph_audit_log (id, execution_id, node_id, event_type, details, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, this.executionId, nodeId || '', eventType, details ? JSON.stringify(details) : '', now]
+    ).catch(e => console.warn('[GraphRunner] audit write failed:', e.message));
+  }
+
+  /**
    * Main execution loop
    */
   async run() {
+    await this.audit('graph_started');
+
     try {
       let currentNodeId = this.graph.entryNode;
 
@@ -138,6 +173,7 @@ export class GraphRunner {
         completedAt: new Date().toISOString()
       });
 
+      await this.audit('graph_completed', null, { path: this.executionPath });
       console.log(`[GraphRunner] Execution ${this.executionId} completed`);
       return this.state.output;
 
@@ -148,6 +184,7 @@ export class GraphRunner {
         error: err.message,
         completedAt: new Date().toISOString()
       });
+      await this.audit('graph_failed', null, { error: err.message });
       throw err;
     }
   }
@@ -171,6 +208,8 @@ export class GraphRunner {
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       try {
+        await this.audit('node_started', node.id, { type: node.type, attempt });
+
         // Set up node timeout
         const nodeTimeout = (node.config.timeout || this.options.nodeTimeout || 5 * 60 * 1000);
         const timeoutPromise = new Promise((_, reject) =>
@@ -199,14 +238,21 @@ export class GraphRunner {
           [JSON.stringify(result), completedAt, completedAt, nodeExecId]
         );
 
+        await this.audit('node_completed', node.id, { attempt });
         return result;
 
       } catch (err) {
         lastErr = err;
 
+        if (err.message.includes('timed out')) {
+          await this.audit('node_timed_out', node.id, { timeout: nodeTimeout });
+        }
+
         if (attempt <= maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
           console.warn(`[GraphRunner] Node ${node.id} attempt ${attempt} failed, retrying in ${delay}ms:`, err.message);
+
+          await this.audit('node_retried', node.id, { attempt, delay });
 
           // Update attempt counter in DB
           await dbExec(
@@ -225,6 +271,7 @@ export class GraphRunner {
       `UPDATE node_executions SET state = 'failed', error = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
       [lastErr.message, failedAt, failedAt, nodeExecId]
     );
+    await this.audit('node_failed', node.id, { error: lastErr.message, attempt: maxRetries + 1 });
     throw lastErr;
   }
 
@@ -322,6 +369,8 @@ export class GraphRunner {
     const { branches } = node.config;
     const now = new Date().toISOString();
 
+    await this.audit('parallel_started', node.id, { branches });
+
     // Create branch records
     const branchPromises = branches.map(async (branchNodeId, index) => {
       const branchId = `branch-${randomUUID()}`;
@@ -377,6 +426,7 @@ export class GraphRunner {
       this.state.parallelContext.set(branchNodeId, result);
     }
 
+    await this.audit('parallel_completed', node.id, { branches: results.length, errors: errors.length });
     return { branches: results, errors };
   }
 
@@ -416,6 +466,7 @@ export class GraphRunner {
 
     // Pause execution
     await this.updateExecution('paused');
+    await this.audit('human_paused', node.id, { approvalId });
 
     console.log(`[GraphRunner] Waiting for human approval: ${approvalId}`);
 
@@ -457,6 +508,7 @@ export class GraphRunner {
 
       if (rows.length > 0 && rows[0].response) {
         console.log(`[GraphRunner] Human approval received from ${rows[0].responded_by}`);
+        await this.audit('human_resumed', node.id, { approvalId, response: rows[0].response });
         return { approved: true, response: rows[0].response, respondedBy: rows[0].responded_by };
       }
     }
@@ -473,9 +525,8 @@ export class GraphRunner {
     if (typeof condition === 'function') {
       return condition(this.state);
     } else if (typeof condition === 'string') {
-      // Eval string as function
-      const fn = eval(`(${condition})`);
-      return fn(this.state);
+      // Safe eval using vm sandbox
+      return safeEval(`(${condition})`, this.state);
     } else {
       throw new Error('Conditional node requires a function or string condition');
     }
@@ -503,8 +554,9 @@ export class GraphRunner {
       if (typeof edge.condition === 'function') {
         conditionResult = edge.condition(this.state, currentResult);
       } else if (typeof edge.condition === 'string') {
-        const fn = eval(`(${edge.condition})`);
-        conditionResult = fn(this.state, currentResult);
+        // Safe eval using vm sandbox
+        const contextWithResult = { ...this.state, result: currentResult };
+        conditionResult = safeEval(`(${edge.condition})`, contextWithResult);
       }
 
       if (conditionResult) {
@@ -555,6 +607,7 @@ export class GraphRunner {
       [checkpointId, this.executionId, nodeExecutionId, this.checkpointIndex, JSON.stringify(this.state), now]
     );
 
+    await this.audit('checkpoint_created', nodeId, { index: this.checkpointIndex });
     this.checkpointIndex++;
   }
 }

@@ -381,3 +381,28 @@ async def list_approvals(
         approvals = cursor.fetchall()
 
     return {"approvals": approvals, "count": len(approvals)}
+
+
+@router.get("/executions/{execution_id}/audit")
+async def get_audit_log(
+    execution_id: str,
+    agent_id: str = Depends(verify_token)
+):
+    """Get audit log for a graph execution."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.row_factory = dict_factory
+
+        # Verify access
+        cursor.execute("SELECT started_by FROM graph_executions WHERE id = ?", (execution_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        if row["started_by"] != agent_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        cursor.execute(
+            "SELECT * FROM graph_audit_log WHERE execution_id = ? ORDER BY created_at ASC",
+            (execution_id,)
+        )
+        return {"audit_log": cursor.fetchall()}

@@ -8,11 +8,29 @@
  */
 
 import { randomUUID } from 'crypto';
+import vm from 'vm';
 
 /**
  * Valid node types
  */
 const NODE_TYPES = ['task', 'worker', 'parallel', 'human', 'merge', 'conditional', 'passthrough'];
+
+/**
+ * Safe eval using vm module (replaces dangerous eval())
+ */
+function safeEval(code, context = {}, timeoutMs = 500) {
+  const sandbox = vm.createContext({
+    state: context,
+    output: context,
+    Math, String, Number, Boolean, Array, Object, JSON,
+    parseInt, parseFloat, isNaN, isFinite,
+  });
+  try {
+    return vm.runInContext(code, sandbox, { timeout: timeoutMs });
+  } catch (err) {
+    throw new Error(`Condition eval failed: ${err.message}`);
+  }
+}
 
 /**
  * GraphNode represents a single executable unit in the graph
@@ -80,10 +98,10 @@ export class GraphNode {
   static fromJSON(data) {
     const config = { ...data.config };
 
-    // Deserialize functions from strings
+    // Deserialize functions from strings using safe eval
     if (data.type === 'conditional' && config._conditionIsSerialized) {
       try {
-        config.condition = eval(`(${config.condition})`);
+        config.condition = safeEval(`(${config.condition})`);
       } catch (err) {
         throw new Error(`Failed to deserialize condition function: ${err.message}`);
       }
@@ -91,7 +109,7 @@ export class GraphNode {
     }
     if (data.type === 'merge' && config._strategyIsSerialized) {
       try {
-        config.strategy = eval(`(${config.strategy})`);
+        config.strategy = safeEval(`(${config.strategy})`);
       } catch (err) {
         throw new Error(`Failed to deserialize strategy function: ${err.message}`);
       }
@@ -148,7 +166,7 @@ export class GraphEdge {
 
     if (condition && data._conditionIsSerialized) {
       try {
-        condition = eval(`(${condition})`);
+        condition = safeEval(`(${condition})`);
       } catch (err) {
         throw new Error(`Failed to deserialize edge condition: ${err.message}`);
       }
