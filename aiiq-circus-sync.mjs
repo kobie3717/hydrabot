@@ -5,7 +5,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { circusRegister } from '../circus-bridge.mjs';
+import { circusRegister } from './circus-bridge.mjs';
 
 const execFileAsync = promisify(execFile);
 
