@@ -5,38 +5,28 @@
  * Args: <executionId> <graphId>
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'crypto';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { Graph } from './graph.mjs';
 import { GraphRunner } from './runner.mjs';
 
-const execFileAsync = promisify(execFile);
-
 const CIRCUS_DB = process.env.CIRCUS_DB || join(process.env.HOME || '/root', '.circus/circus.db');
 
-/**
- * SQL escape helper
- */
-function sqlEscape(str) {
-  if (typeof str !== 'string') return '';
-  return str.replace(/'/g, "''").replace(/\0/g, '');
+let _db = null;
+function getDb() {
+  if (!_db) {
+    _db = new DatabaseSync(CIRCUS_DB);
+    _db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=15000;');
+  }
+  return _db;
 }
 
-/**
- * Query DB and return JSON rows
- */
-async function dbQuery(sql, params = []) {
-  let finalSql = sql;
-  for (const param of params) {
-    const escaped = typeof param === 'string' ? `'${sqlEscape(param)}'` : String(param);
-    finalSql = finalSql.replace('?', escaped);
-  }
-
+function dbQuery(sql, params = []) {
   try {
-    const { stdout } = await execFileAsync('sqlite3', [CIRCUS_DB, '-json', finalSql], { timeout: 10000 });
-    return stdout.trim() ? JSON.parse(stdout) : [];
+    const db = getDb();
+    const stmt = db.prepare(sql);
+    return stmt.all(...params);
   } catch (err) {
     console.error('[run-execution] dbQuery failed:', err.message);
     return [];
@@ -47,7 +37,7 @@ async function dbQuery(sql, params = []) {
  * Run graph by ID — loads existing execution record and graph definition
  */
 async function runGraphById(executionId, graphId, opts = {}) {
-  const defRows = await dbQuery(
+  const defRows = dbQuery(
     `SELECT definition, version FROM graph_definitions WHERE id = ?`,
     [graphId]
   );
@@ -56,7 +46,7 @@ async function runGraphById(executionId, graphId, opts = {}) {
   const graph = Graph.deserialize(defRows[0].definition);
 
   // Load input from existing execution record
-  const execRows = await dbQuery(
+  const execRows = dbQuery(
     `SELECT input_data FROM graph_executions WHERE id = ?`,
     [executionId]
   );

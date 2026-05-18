@@ -384,9 +384,19 @@ export class GraphRunner {
     const { botId, message } = node.config;
 
     try {
-      // Dynamically import dispatch from bot-circus
-      const dispatchPath = join(BOT_CIRCUS_DIR, 'dispatch.mjs');
-      const { dispatch } = await import(dispatchPath);
+      // Validate BOT_CIRCUS_DIR is within expected base to prevent path traversal
+      const { realpathSync } = await import('node:fs');
+      const ALLOWED_BASE = process.env.HOME || '/root';
+      let resolvedDispatchPath;
+      try {
+        resolvedDispatchPath = realpathSync(join(BOT_CIRCUS_DIR, 'dispatch.mjs'));
+      } catch {
+        throw new Error(`BOT_CIRCUS_DIR path invalid: ${BOT_CIRCUS_DIR}`);
+      }
+      if (!resolvedDispatchPath.startsWith(ALLOWED_BASE)) {
+        throw new Error(`BOT_CIRCUS_DIR outside allowed base: ${resolvedDispatchPath}`);
+      }
+      const { dispatch } = await import(resolvedDispatchPath);
 
       const messageText = typeof message === 'function' ? message(this.state) : message;
       const result = await dispatch(botId, messageText);
