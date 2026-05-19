@@ -1,163 +1,152 @@
-# Implementation Summary
+# Adding New Agent Packs
 
-Ported galatro's red team agents from Google ADK/Gemini to Claude (Anthropic SDK).
+Guide for 007 and contributors. Adding a pack = 4 files + 1 registry entry.
 
-## What was built
+## Structure
 
-Complete agent library at `/root/hydrabot/agents/` with:
+Each pack lives in `agents/<packname>/`:
 
-### Core Infrastructure
-- **base.py** - BaseAgent class using `anthropic.AsyncAnthropic()`
-- **runner.py** - `run_parallel()` and `run_sequential()` orchestration
-- **registry.py** - Central pack registry with `list_packs()` and `run_pack()`
+```
+agents/
+  mypack/
+    __init__.py        required
+    agent_a.py         one file per agent role
+    agent_b.py
+    synthesis.py       aggregates all agent outputs
+    orchestrator.py    entry point — async run_mypack(document) → dict
+```
 
-### Red Team Agent Pack
-Five adversarial agents running in parallel:
-1. **cfo.py** - Financial skepticism (finds 3+ financial flaws)
-2. **market.py** - Customer/demand skepticism (attacks demand assumptions)
-3. **legal.py** - Corporate structure analysis (finds conflicts of interest)
-4. **competitor.py** - Competitive threats (explains how to beat the company)
-5. **execution.py** - Operational feasibility (finds execution failures)
+## Step 1: Create agent files
 
-Plus:
-6. **synthesis.py** - Aggregates 5 agents into structured JSON report
-7. **orchestrator.py** - Runs all 6 agents (5 parallel, then synthesis)
+Each agent = one `BaseAgent` with an adversarial or specialist system prompt.
 
-### System Prompts
-All agent system prompts ported exactly from galatro, maintaining:
-- Adversarial tone (no softening)
-- Structured output format (VULNERABILITY / SEVERITY / ATTACK / QUESTION)
-- Minimum 3 vulnerabilities per agent
-- Specific instructions for each role
+```python
+# agents/mypack/analyst.py
+from ..base import BaseAgent
 
-### Output Format
-Synthesis agent produces JSON:
-```json
+analyst_agent = BaseAgent(
+    name="analyst",
+    system_prompt="""You are a [ROLE] analyst reviewing a document.
+
+Your job: [SPECIFIC ADVERSARIAL OR EXPERT ANGLE].
+
+Find [WHAT TO FIND]. Be specific. Use evidence from the document.
+Never make up facts not present in the text.
+
+Return ONLY this JSON:
 {
-  "risk_score": 0-100,
-  "executive_summary": "...",
-  "vulnerabilities": [...],
-  "top_3_questions": [...],
-  "verdict": "PROCEED|PROCEED_WITH_CAUTION|DO_NOT_PROCEED"
-}
+  "findings": ["specific finding 1", "specific finding 2"],
+  "risk_level": "LOW|MEDIUM|HIGH|CRITICAL",
+  "key_question": "the single most important question this raises"
+}""",
+    max_tokens=2000
+)
 ```
 
-## File Structure
+## Step 2: Create synthesis.py
 
-```
-/root/hydrabot/agents/
-├── requirements.txt         # anthropic>=0.40.0
-├── __init__.py             # Package exports
-├── base.py                 # BaseAgent class
-├── runner.py               # Orchestration primitives
-├── registry.py             # Pack registry
-├── README.md               # Full documentation
-├── example.py              # Usage example
-├── test_imports.py         # Import verification
-├── quickstart.sh           # Setup script
-├── IMPLEMENTATION.md       # This file
-└── redteam/
-    ├── __init__.py
-    ├── cfo.py              # CFO agent
-    ├── market.py           # Market agent
-    ├── legal.py            # Legal agent
-    ├── competitor.py       # Competitor agent
-    ├── execution.py        # Execution agent
-    ├── synthesis.py        # Synthesis agent
-    └── orchestrator.py     # Red team orchestrator
-```
+Aggregates all agent outputs into a final structured result.
 
-## Key Design Decisions
-
-1. **Anthropic SDK Only** - No Google ADK or Gemini dependencies
-2. **Async/Await Throughout** - Uses `asyncio.gather()` for parallel execution
-3. **Model: claude-sonnet-4-6** - Default for all agents
-4. **Token Limits** - 2000 for individual agents, 4000 for synthesis
-5. **No RAG** - Document passed as full context (keeps it simple)
-6. **No Tests/CI** - Per requirements (production-ready but minimal)
-7. **Exact Prompt Port** - Maintained galatro's adversarial tone exactly
-
-## Usage
-
-### Quick Start
-```bash
-cd /root/hydrabot
-./agents/quickstart.sh
-```
-
-### Run Red Team Analysis
 ```python
-import sys
+# agents/mypack/synthesis.py
+from ..base import BaseAgent
+
+synthesis_agent = BaseAgent(
+    name="synthesis",
+    system_prompt="""You receive reports from multiple specialist agents.
+Synthesize into a final verdict.
+
+Return ONLY this JSON:
+{
+  "score": 0-100,
+  "verdict": "PROCEED|PROCEED_WITH_CAUTION|DO_NOT_PROCEED",
+  "summary": "2-3 sentence executive summary",
+  "top_findings": ["finding 1", "finding 2", "finding 3"],
+  "top_questions": ["question 1", "question 2", "question 3"]
+}""",
+    max_tokens=3000
+)
+```
+
+## Step 3: Create orchestrator.py
+
+Runs agents in parallel, feeds results to synthesis, returns dict.
+
+```python
+# agents/mypack/orchestrator.py
 import asyncio
-sys.path.insert(0, '/root/hydrabot')
+import json
+from .analyst import analyst_agent
+from .risk import risk_agent
+from .synthesis import synthesis_agent
 
-from agents import run_pack
+async def run_mypack(document: str) -> dict:
+    # Run all agents in parallel
+    results = await asyncio.gather(
+        analyst_agent.run(document),
+        risk_agent.run(document),
+        return_exceptions=True
+    )
 
-async def analyze(document: str):
-    result = await run_pack("redteam", document)
-    print(f"Risk Score: {result['risk_score']}/100")
-    print(f"Verdict: {result['verdict']}")
-    return result
+    # Filter errors
+    agent_outputs = []
+    for r in results:
+        if isinstance(r, Exception):
+            continue
+        agent_outputs.append(r)
 
-document = """Your strategic document here..."""
-result = asyncio.run(analyze(document))
+    # Synthesize
+    combined = "\n\n---\n\n".join(agent_outputs)
+    raw = await synthesis_agent.run(combined)
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"raw": raw, "error": "synthesis parse failed"}
 ```
 
-### Environment Setup
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-export PYTHONPATH=/root/hydrabot:$PYTHONPATH
-```
+## Step 4: Create __init__.py
 
-## Dependencies
-
-- **anthropic** (v0.100.0 already installed)
-- Standard library: `asyncio`, `json`, `os`, `typing`
-
-## Integration Points
-
-The library is standalone but can be integrated with:
-- HydraBot's existing circus/ (agent coordination)
-- HydraBot's graph-engine/ (workflow orchestration)
-- Any async Python application
-
-Registry pattern allows easy addition of new agent packs:
 ```python
-# In registry.py
+# agents/mypack/__init__.py
+from .orchestrator import run_mypack
+
+__all__ = ["run_mypack"]
+```
+
+## Step 5: Register in registry.py
+
+Add ONE entry to `AGENT_PACKS` in `agents/registry.py`:
+
+```python
 from .mypack.orchestrator import run_mypack
 
 AGENT_PACKS["mypack"] = {
-    "name": "My Pack",
+    "name": "My Pack Name",
+    "description": "One line — what it does and from whose perspective",
     "run": run_mypack,
-    ...
+    "input": "What kind of document to pass in",
+    "output": "What the output dict contains",
 }
 ```
 
-## Verification
+**That's it.** The Telegram bot (`bots/agent-bot/`) automatically lists and runs it.
 
-All tests pass:
-```bash
-cd /root/hydrabot
-PYTHONPATH=/root/hydrabot:$PYTHONPATH python3 agents/test_imports.py
-# Output: All import tests passed! ✓
-```
+## Pack Ideas for 007
 
-## Next Steps (Not Implemented)
+| Pack ID | Agents | Input | Use case |
+|---------|--------|-------|----------|
+| `due_diligence` | financial, reputation, legal, market, people | Company profile | Validate partner/client |
+| `saas_health` | metrics, churn, pricing, growth, burn | SaaS metrics doc | Analyze SaaS business |
+| `pitch_coach` | clarity, market_fit, numbers, story, competition | Pitch deck text | Improve investor pitch |
+| `contract_review` | risk, obligations, ip, exit, dispute | Contract text | Flag red flags |
+| `market_entry` | tam, competitors, channels, timing, moat | Market description | Should we enter? |
+| `hiring` | skills, culture, red_flags, trajectory, fit | CV/resume | Evaluate candidate |
 
-Per requirements, the following were NOT added:
-- Unit tests
-- CI/CD integration
-- RAG retrieval system
-- Integration with existing circus/graph-engine
-- CLI interface
-- Web API
+## Tips
 
-These can be added later as needed.
-
-## Notes
-
-- Imports require PYTHONPATH=/root/hydrabot or sys.path modification
-- API key must be set in ANTHROPIC_API_KEY environment variable
-- All agents use async/await - must be called within async context
-- JSON parsing in synthesis includes error handling for malformed output
-- System prompts are exact ports from galatro (no modifications)
+- **Adversarial > Balanced** — packs work best when each agent has ONE strong angle, not trying to be fair
+- **JSON output always** — synthesis must return parseable JSON so the bot can format it
+- **Parallel by default** — `asyncio.gather()` in orchestrator runs agents simultaneously (~10s not ~50s)
+- **Model choice** — use `claude-sonnet-4-6` (default) for analysis, `claude-haiku-4-5` for cheap/fast agents
+- **Prompt caching** — for large system prompts, add `cache_control` (see Anthropic docs)

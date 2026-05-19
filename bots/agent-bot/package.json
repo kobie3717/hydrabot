@@ -1,0 +1,14 @@
+{
+  "name": "agent-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Telegram bot for HydraBot agent packs — list and run agents via chat",
+  "main": "bot.mjs",
+  "scripts": {
+    "start": "node bot.mjs"
+  },
+  "dependencies": {
+    "grammy": "^1.30.0",
+    "dotenv": "^16.4.5"
+  }
+}
