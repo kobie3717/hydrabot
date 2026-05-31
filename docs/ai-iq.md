@@ -68,7 +68,7 @@ const { stdout } = await execFileAsync('memory-tool', [
 
 Default: `~/ai-iq/memories.db`
 
-Set via env: `AIIQ_DB_PATH=/custom/path/memories.db`
+Set via env: `MEMORY_DB=/custom/path/memories.db`
 
 ## Conflict Detection
 

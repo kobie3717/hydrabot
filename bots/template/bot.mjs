@@ -16,6 +16,7 @@ import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getOrCreateSession, clearSession, getSessionInfo, cleanExpiredSessions } from './sessions.mjs';
+import { buildMemoryContext, autoStoreConversation } from './memory-bridge.mjs';
 
 // Support both in-repo and standalone deployment
 const BRIDGE_PATH = process.env.CIRCUS_BRIDGE_PATH ||
@@ -50,22 +51,35 @@ const CLAUDE_TIMEOUT = parseInt(process.env.CLAUDE_TIMEOUT || '120000', 10);
 
 if (!BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is required');
 
-// ── Personality ─────────────────────────────────────────────────────────────
+// ── Workspace Files ─────────────────────────────────────────────────────────
 
-function loadSoul() {
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function loadWorkspaceFile(filename, maxLen = 4000) {
   try {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const soulPath = process.env.SOUL_FILE || join(__dirname, 'SOUL.md');
-    if (existsSync(soulPath)) {
-      const soul = readFileSync(soulPath, 'utf8')
+    const filePath = join(__dirname, filename);
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath, 'utf8')
         .replaceAll('{{BOT_NAME}}', BOT_NAME)
-        .slice(0, 4000);
-      console.log(`[Soul] Loaded personality from ${soulPath}`);
-      return soul;
+        .slice(0, maxLen);
+      // Skip files that are all comments/placeholders
+      const stripped = content.replace(/<!--[\s\S]*?-->/g, '').replace(/^#.*$/gm, '').trim();
+      if (stripped.length < 20) return '';
+      console.log(`[Workspace] Loaded ${filename}`);
+      return content;
     }
   } catch { /* non-fatal */ }
-  return `You are ${BOT_NAME}, a helpful AI assistant.`;
+  return '';
 }
+
+function loadSoul() {
+  const soul = loadWorkspaceFile('SOUL.md');
+  return soul || `You are ${BOT_NAME}, a helpful AI assistant.`;
+}
+
+const userContext = loadWorkspaceFile('USER.md', 2000);
+const agentsRules = loadWorkspaceFile('AGENTS.md', 2000);
+const toolsRef = loadWorkspaceFile('TOOLS.md', 1500);
 
 const SOUL = loadSoul();
 
@@ -220,8 +234,11 @@ bot.on('message:text', async (ctx) => {
   const userMessage = ctx.message.text;
 
   try {
-    // Fetch shared knowledge from Circus mesh (non-fatal)
-    const sharedContext = await getRelevantSharedKnowledge(userMessage).catch(() => '');
+    // Fetch context in parallel (all non-fatal)
+    const [sharedContext, memoryContext] = await Promise.all([
+      getRelevantSharedKnowledge(userMessage).catch(() => ''),
+      buildMemoryContext(userMessage).catch(() => ''),
+    ]);
 
     // Build system prompt with performer awareness
     const performers = listPerformers();
@@ -231,6 +248,10 @@ bot.on('message:text', async (ctx) => {
 
     const systemPrompt = [
       SOUL,
+      userContext,
+      agentsRules,
+      toolsRef,
+      memoryContext,
       performerContext,
       sharedContext ? `\n## Shared Knowledge\n${sharedContext}` : '',
     ].filter(Boolean).join('\n');
@@ -258,6 +279,9 @@ bot.on('message:text', async (ctx) => {
     await ctx.reply(response, { parse_mode: 'Markdown' }).catch(() =>
       ctx.reply(response) // fallback: no markdown
     );
+
+    // Store notable facts in AI-IQ long-term memory (non-fatal)
+    autoStoreConversation(userMessage, response).catch(err => console.error('[Memory] Auto-store error:', err.message));
 
     // Share interesting responses with the mesh
     if (response.length > 100) {

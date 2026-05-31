@@ -135,6 +135,30 @@ No restart needed — your bot discovers performers automatically.
 | `/session` | Show session info (message count, age) |
 | `/approve` | Resume a paused graph execution |
 
+## AI-IQ Long-Term Memory
+
+Each bot gets its own AI-IQ memory database (`data/<botname>-memories.db`). Memories persist across sessions — the bot stores notable facts automatically and recalls them on future messages.
+
+**How it works:**
+- Bot stores facts when you say "remember...", "note that...", or when it completes an action
+- On each message, the bot searches memories for relevant context and injects it into the prompt
+- Sessions (`/clear`) reset conversation history, but AI-IQ memories survive
+
+**Semantic search** requires embedding dependencies (installed automatically). To reindex after first install:
+
+```bash
+MEMORY_DB=$HYDRABOT_DIR/bots/mybot/data/mybot-memories.db memory-tool reindex
+```
+
+**Maintenance** — AI-IQ has built-in memory hygiene commands. The bot template sets up a nightly cron via PM2 to run `dream` (consolidate duplicates, normalize dates) and `reindex` (embed new memories):
+
+| Command | What it does | Frequency |
+|---------|-------------|-----------|
+| `memory-tool dream` | Consolidate, merge duplicates, normalize | Nightly |
+| `memory-tool reindex` | Generate embeddings for semantic search | Nightly |
+| `memory-tool consolidate` | Deep merge + pattern detection + pruning | Weekly (manual) |
+| `memory-tool retention` | Show lowest-value memories for cleanup | As needed |
+
 ## Verify Circus is Running
 
 ```bash

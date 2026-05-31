@@ -162,6 +162,12 @@ else
   miss "ai-iq (Python)"
 fi
 
+if python3 -c "import sqlite_vec; import onnxruntime" 2>/dev/null; then
+  ok "AI-IQ embeddings" "installed"
+else
+  miss "AI-IQ embeddings (semantic search)"
+fi
+
 echo ""
 
 # ============================================================
@@ -265,6 +271,12 @@ pip3 install ai-iq circus-agent --quiet --user 2>/dev/null \
   || pip3 install ai-iq circus-agent --quiet 2>/dev/null \
   || log "Warning: Could not install ai-iq / circus-agent. Install manually: pip3 install ai-iq circus-agent"
 
+# AI-IQ semantic search dependencies (optional — keyword search works without these)
+log "Installing AI-IQ embedding dependencies..."
+pip3 install sqlite-vec onnxruntime tokenizers numpy --quiet --user 2>/dev/null \
+  || pip3 install sqlite-vec onnxruntime tokenizers numpy --quiet 2>/dev/null \
+  || log "Warning: Could not install embedding deps. Semantic search will be unavailable. Install manually: pip3 install sqlite-vec onnxruntime tokenizers numpy"
+
 # 6. Bootstrap Circus data directory
 log "[6/8] Bootstrapping Circus data directory..."
 mkdir -p "$CIRCUS_DATA_DIR"
@@ -342,6 +354,11 @@ echo "  3. Edit $HYDRABOT_DIR/bots/my-bot/SOUL.md to customize your bot's person
 echo "  4. npm install --prefix $HYDRABOT_DIR/bots/my-bot"
 echo "  5. pm2 start $HYDRABOT_DIR/bots/my-bot/bot.mjs --name my-bot --cwd $HYDRABOT_DIR/bots/my-bot"
 echo "  6. pm2 save"
+echo ""
+echo "Set up AI-IQ maintenance (recommended):"
+echo "  # Nightly dream + reindex for each bot:"
+echo "  crontab -l 2>/dev/null; echo '0 3 * * * bash $HYDRABOT_DIR/bots/my-bot/maintain.sh >> /tmp/hydrabot-maintain.log 2>&1'"
+echo "  # Or add to crontab manually: crontab -e"
 echo ""
 echo "Create a performer (optional):"
 echo "  cp -r $HYDRABOT_DIR/performers/template $HYDRABOT_DIR/performers/myworker"
