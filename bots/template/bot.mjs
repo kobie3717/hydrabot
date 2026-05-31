@@ -241,13 +241,12 @@ bot.on('message:text', async (ctx) => {
       ? ['--session-id', sessionId]
       : ['--resume', sessionId];
 
-    // Run Claude Code CLI
+    // Run Claude Code CLI — pass message as arg (stdin doesn't work with --resume)
     const { stdout } = await execFileAsync(
       CLAUDE_PATH,
       ['--print', ...sessionArgs, '--output-format', 'text', '--model', 'claude-sonnet-4-6',
-       '--system-prompt', systemPrompt],
+       '--system-prompt', systemPrompt, '--', userMessage],
       {
-        input: userMessage,
         timeout: CLAUDE_TIMEOUT,
         cwd: CLAUDE_CWD,
         maxBuffer: 10 * 1024 * 1024,
