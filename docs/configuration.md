@@ -7,14 +7,14 @@
 | `TELEGRAM_BOT_TOKEN` | Yes | — | Token from @BotFather |
 | `ALLOWED_USER_ID` | Yes | — | Telegram user ID allowed to chat |
 | `CLAUDE_CLI_PATH` | No | `claude` | Path to Claude Code CLI binary |
-| `CLAUDE_WORKING_DIR` | No | `/root` | Working directory for Claude sessions |
+| `CLAUDE_WORKING_DIR` | No | `$HOME` | Working directory for Claude sessions |
 | `CLAUDE_TIMEOUT` | No | `300000` | Claude CLI timeout in ms |
 | `CIRCUS_URL` | No | `http://localhost:6200` | Circus API URL |
 | `BOT_NAME` | No | — | Bot display name (used in Circus registration) |
 | `WEBHOOK_URL` | No | — | Public URL for Telegram webhook mode |
 | `WEBHOOK_PORT` | No | `7711` | Local port for webhook server |
 
-## Circus API (`/root/circus/.env`)
+## Circus API (`$HOME/circus/.env`)
 
 | Variable | Description |
 |----------|-------------|

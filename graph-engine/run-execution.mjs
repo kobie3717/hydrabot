@@ -11,7 +11,8 @@ import { join, resolve } from 'path';
 import { Graph } from './graph.mjs';
 import { GraphRunner } from './runner.mjs';
 
-const CIRCUS_DB = process.env.CIRCUS_DB || join(process.env.HOME || '/root', '.circus/circus.db');
+const HOME_DIR = process.env.HOME || '/root';
+const CIRCUS_DB = process.env.CIRCUS_DB || join(HOME_DIR, '.circus/circus.db');
 
 let _db = null;
 function getDb() {

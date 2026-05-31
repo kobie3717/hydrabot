@@ -8,9 +8,12 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync, appendFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const execFileAsync = promisify(execFile);
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // SQL escaping helper for SQLite string literals
 function sqlEscape(str) {
@@ -25,7 +28,7 @@ const CIRCUS_DB  = process.env.CIRCUS_DB  || join(HOME_DIR, '.circus/circus.db')
 const OWNER_ID   = process.env.CIRCUS_OWNER_ID  || 'admin';
 const OWNER_KEY  = process.env.CIRCUS_OWNER_KEY || join(HOME_DIR, '.circus/owner.key');
 const CIRCUS_IDENTITY_DIR = process.env.CIRCUS_IDENTITY_DIR || join(HOME_DIR, '.circus');
-const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || join(HOME_DIR, 'hydrabot/bot-circus');
+const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || join(__dirname, '..', '..', 'bot-circus');
 
 // Runtime state
 let _ringToken = null;

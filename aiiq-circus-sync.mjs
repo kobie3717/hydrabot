@@ -1,5 +1,5 @@
 // AI-IQ → Circus sync: promotes high-value personal memories to shared knowledge pool.
-// Run: node /root/aiiq-circus-sync.mjs
+// Run: node aiiq-circus-sync.mjs
 // Cron: every 6 hours
 
 import { execFile } from 'child_process';
@@ -10,7 +10,7 @@ import { circusRegister } from './circus-bridge.mjs';
 const execFileAsync = promisify(execFile);
 
 // Per-agent DB paths — each bot has its own isolated memory DB
-const BASE = process.env.BOTS_DIR || '/root';
+const BASE = process.env.BOTS_DIR || process.env.HOME || '/root';
 const AIIQ_DB_MAP = {
   'Claw':     process.env.CLAW_DB     || `${BASE}/claude-telegram-bot/data/claw-memories.db`,
   'Friday':   process.env.FRIDAY_DB   || `${BASE}/claude-telegram-bot-friday/data/friday-memories.db`,

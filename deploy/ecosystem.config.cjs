@@ -1,10 +1,15 @@
 // PM2 ecosystem config for all live VPS services
+// Paths default to $HOME-relative; override with environment variables or edit to match your layout
+const HOME = process.env.HOME || '/root';
+const path = require('path');
+const join = path.join;
+
 module.exports = {
   apps: [
     // Separate repos (deployed from their own locations)
     {
       name: '007-bot',
-      cwd: '/root/007-bot',
+      cwd: join(HOME, '007-bot'),
       script: 'bot.mjs',
       watch: false,
       max_memory_restart: '512M',
@@ -12,7 +17,7 @@ module.exports = {
     },
     {
       name: 'claw-bot',
-      cwd: '/root/claude-telegram-bot',
+      cwd: join(HOME, 'claude-telegram-bot'),
       script: 'bot.mjs',
       watch: false,
       max_memory_restart: '512M',
@@ -20,7 +25,7 @@ module.exports = {
     },
     {
       name: 'friday-bot',
-      cwd: '/root/claude-telegram-bot-friday',
+      cwd: join(HOME, 'claude-telegram-bot-friday'),
       script: 'bot.mjs',
       watch: false,
       max_memory_restart: '512M',
@@ -28,7 +33,7 @@ module.exports = {
     },
     {
       name: 'octo-bot',
-      cwd: '/root/octo-bot',
+      cwd: join(HOME, 'octo-bot'),
       script: 'bot.mjs',
       watch: false,
       max_memory_restart: '512M',
@@ -36,7 +41,7 @@ module.exports = {
     },
     {
       name: 'wa-drone-bot',
-      cwd: '/root/wa-drone-bot',
+      cwd: join(HOME, 'wa-drone-bot'),
       script: 'bot.mjs',
       watch: false,
       max_memory_restart: '512M',
@@ -45,7 +50,7 @@ module.exports = {
     // Performers (from hydrabot repo)
     {
       name: 'webbs',
-      cwd: '/root/webbs',
+      cwd: join(HOME, 'webbs'),
       script: 'bot.mjs',
       watch: false,
       max_memory_restart: '512M',
@@ -53,7 +58,7 @@ module.exports = {
     },
     {
       name: 'worker-bot',
-      cwd: '/root/jobs',
+      cwd: join(HOME, 'jobs'),
       script: 'worker.mjs',
       watch: false,
       max_memory_restart: '256M',

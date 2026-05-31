@@ -57,31 +57,37 @@ AI-IQ (memory-tool CLI)
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/kobie3717/hydrabot.git /opt/hydrabot
+git clone https://github.com/kobie3717/hydrabot.git ~/Documents/hydrabot
 
-# 2. Run the installer (as root or with sudo)
-sudo HYDRABOT_DIR=/opt/hydrabot bash /opt/hydrabot/deploy/install.sh
+# 2. Run the installer (installs in-place)
+bash ~/Documents/hydrabot/deploy/install.sh
 ```
 
-The installer handles: Node.js 22, PM2, Claude Code CLI, Python deps, Circus API, and performer workspaces.
+**Or install to a separate runtime directory** (keeps your git repo clean):
+
+```bash
+HYDRABOT_DIR=~/hydrabot bash ~/Documents/hydrabot/deploy/install.sh
+```
+
+The installer checks all prerequisites first and prompts before installing anything. It uses `sudo` only for system packages and systemd setup. It handles: Node.js 22, PM2, Claude Code CLI, Python deps, Circus API, and performer workspaces.
 
 > **Auth step**: If Claude Code CLI wasn't already installed, the script will pause and ask you to run `claude login`. Do that, then re-run the installer.
 
 ## Configure a Bot
 
 ```bash
-# Copy the template
-cp -r /opt/hydrabot/bots/template /opt/hydrabot/bots/mybot
+# Copy the template (replace $HYDRABOT_DIR with your install path)
+cp -r $HYDRABOT_DIR/bots/template $HYDRABOT_DIR/bots/mybot
 
 # Fill in your values
-cp /opt/hydrabot/bots/template/.env.example /opt/hydrabot/bots/mybot/.env
-nano /opt/hydrabot/bots/mybot/.env
+cp $HYDRABOT_DIR/bots/template/.env.example $HYDRABOT_DIR/bots/mybot/.env
+nano $HYDRABOT_DIR/bots/mybot/.env
 
 # Install dependencies
-npm install --prefix /opt/hydrabot/bots/mybot
+npm install --prefix $HYDRABOT_DIR/bots/mybot
 
 # Start with PM2
-pm2 start /opt/hydrabot/bots/mybot/bot.mjs --name mybot
+pm2 start $HYDRABOT_DIR/bots/mybot/bot.mjs --name mybot
 pm2 save
 ```
 
@@ -106,10 +112,10 @@ curl http://localhost:6200/health
 The worker polls a job queue and runs long tasks via Claude:
 
 ```bash
-cp /opt/hydrabot/performers/worker/.env.example /opt/hydrabot/performers/worker/.env
-nano /opt/hydrabot/performers/worker/.env
-npm install --prefix /opt/hydrabot/performers/worker
-pm2 start /opt/hydrabot/performers/worker/worker.mjs --name worker
+cp $HYDRABOT_DIR/performers/worker/.env.example $HYDRABOT_DIR/performers/worker/.env
+nano $HYDRABOT_DIR/performers/worker/.env
+npm install --prefix $HYDRABOT_DIR/performers/worker
+pm2 start $HYDRABOT_DIR/performers/worker/worker.mjs --name worker
 pm2 save
 ```
 

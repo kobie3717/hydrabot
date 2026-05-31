@@ -19,15 +19,17 @@ import 'dotenv/config';
 import { Bot } from 'grammy';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const execFileAsync = promisify(execFile);
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const BOT_NAME     = process.env.BOT_NAME || 'AgentBot';
 const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_USER = parseInt(process.env.ALLOWED_USER_ID || '0', 10);
 const PYTHON       = process.env.PYTHON_PATH || 'python3';
-const HYDRABOT_DIR = process.env.HYDRABOT_DIR || '/opt/hydrabot';
+const HYDRABOT_DIR = process.env.HYDRABOT_DIR || join(__dirname, '..', '..');
 const TIMEOUT      = parseInt(process.env.AGENT_TIMEOUT || '120000', 10);
 const CLI_PATH     = join(HYDRABOT_DIR, 'agents', 'cli.py');
 

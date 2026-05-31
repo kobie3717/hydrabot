@@ -17,7 +17,8 @@ import { GraphRunner } from './runner.mjs';
 
 const execFileAsync = promisify(execFile);
 
-const CIRCUS_DB = process.env.CIRCUS_DB || join(process.env.HOME || '/root', '.circus/circus.db');
+const HOME_DIR = process.env.HOME || '/root';
+const CIRCUS_DB = process.env.CIRCUS_DB || join(HOME_DIR, '.circus/circus.db');
 const CIRCUS_URL = process.env.CIRCUS_URL || 'http://localhost:6200';
 
 /**

@@ -7,7 +7,7 @@ Wants=network.target
 Type=simple
 User=root
 # WorkingDirectory: set to wherever circus Python package is installed
-# Default: /root/circus (from pip install -e .) or /opt/hydrabot if installed there
+# The install.sh script substitutes the correct path here automatically
 WorkingDirectory=/root/circus
 ExecStart=/usr/bin/python3 -m uvicorn circus.app:app --host 127.0.0.1 --port 6200
 Restart=always

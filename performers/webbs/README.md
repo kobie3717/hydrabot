@@ -58,9 +58,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/root/webbs
-ExecStart=/usr/bin/node /root/webbs/bot.mjs
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/webbs
+ExecStart=/usr/bin/node /home/YOUR_USER/webbs/bot.mjs
 Restart=always
 RestartSec=10
 

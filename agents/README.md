@@ -26,7 +26,7 @@ agents/
 ## Installation
 
 ```bash
-cd /root/hydrabot/agents
+cd hydrabot/agents
 pip install -r requirements.txt
 ```
 

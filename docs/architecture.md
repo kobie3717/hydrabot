@@ -42,8 +42,8 @@ Task handlers are registered in the in-memory map before `circusRegister()` is c
 
 | Store | Location | Size | Purpose |
 |-------|----------|------|---------|
-| AI-IQ memories.db | `/root/ai-iq/memories.db` | ~6 MB | Per-agent long-term memory |
-| Circus circus.db | `/root/.circus/circus.db` | ~57 MB | Shared agent commons |
+| AI-IQ memories.db | `$HOME/ai-iq/memories.db` | ~6 MB | Per-agent long-term memory |
+| Circus circus.db | `$HOME/.circus/circus.db` | ~57 MB | Shared agent commons |
 | Bot session state | In-memory (per process) | KB | Active conversation context |
 | Performer MEMORY.md | `performers/{id}/MEMORY.md` | KB | Worker task logs |
 
