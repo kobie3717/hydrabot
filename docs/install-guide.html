@@ -380,7 +380,7 @@ PM2 Bots  (grammy + Claude Code CLI)
 <span class="cmd">npm install</span> <span class="flag">--prefix</span> ~/hydrabot/bots/mybot
 
 <span class="comment"># Start with PM2</span>
-<span class="cmd">pm2 start</span> ~/hydrabot/bots/mybot/bot.mjs <span class="flag">--name</span> mybot
+<span class="cmd">pm2 start</span> ~/hydrabot/bots/mybot/bot.mjs <span class="flag">--name</span> mybot <span class="flag">--cwd</span> ~/hydrabot/bots/mybot
 
 <span class="comment"># Save so it survives reboot</span>
 <span class="cmd">pm2 save</span>
@@ -428,7 +428,7 @@ PM2 Bots  (grammy + Claude Code CLI)
 <span class="cmd">cp</span> ~/hydrabot/bots/template/.env.example ~/hydrabot/bots/designbot/.env
 <span class="comment"># Edit .env with different TELEGRAM_BOT_TOKEN</span>
 <span class="cmd">npm install</span> <span class="flag">--prefix</span> ~/hydrabot/bots/designbot
-<span class="cmd">pm2 start</span> ~/hydrabot/bots/designbot/bot.mjs <span class="flag">--name</span> designbot
+<span class="cmd">pm2 start</span> ~/hydrabot/bots/designbot/bot.mjs <span class="flag">--name</span> designbot <span class="flag">--cwd</span> ~/hydrabot/bots/designbot
 <span class="cmd">pm2 save</span></pre>
 
 <div class="callout info">

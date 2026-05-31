@@ -92,7 +92,7 @@ nano $HYDRABOT_DIR/bots/mybot/SOUL.md
 npm install --prefix $HYDRABOT_DIR/bots/mybot
 
 # Start with PM2
-pm2 start $HYDRABOT_DIR/bots/mybot/bot.mjs --name mybot
+pm2 start $HYDRABOT_DIR/bots/mybot/bot.mjs --name mybot --cwd $HYDRABOT_DIR/bots/mybot
 pm2 save
 ```
 
