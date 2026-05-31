@@ -37,14 +37,16 @@ Circus API (FastAPI :6200)      Bot-Circus dispatch
 AI-IQ (memory-tool CLI)
 ```
 
-| Layer | Component | Purpose |
-|-------|-----------|---------|
-| 0 | Claude Code CLI | AI inference engine |
-| 1 | AI-IQ | Per-agent long-term memory |
-| 2 | Circus | Multi-agent mesh (registry, rooms, tasks) |
-| 3 | Bot-Circus | Ephemeral worker pool |
-| 4 | circus-bridge.mjs | Node.js ↔ Circus integration |
-| 5 | Bots | Telegram interface + business logic |
+| Directory | What it is | Example |
+|-----------|-----------|---------|
+| `bots/` | Telegram front-door bots (always running via PM2) | Your one bot that users chat with |
+| `performers/` | Specialist worker personas with SOUL.md | jobhunter, researcher, coder |
+| `bot-circus/` | Dispatch bridge — spawns ephemeral Claude workers | `dispatch('jobhunter', 'review my CV')` |
+| `circus/` | Multi-agent mesh (registry, rooms, tasks) | Shared knowledge, agent coordination |
+| `graph-engine/` | Graph orchestration with human-in-the-loop | Multi-step workflows |
+| `agents/` | Python agent packs (redteam, contract review) | Multi-agent analysis |
+
+**Flow:** You chat with your bot in Telegram. For general questions, it answers directly. For specialist tasks, it dispatches to a performer via bot-circus. The performer runs as an ephemeral Claude process using its SOUL.md, does the work, and returns the result.
 
 ## Prerequisites
 
@@ -106,6 +108,32 @@ pm2 save
 ### Customize Personality
 
 Edit `SOUL.md` in your bot directory to define its personality, expertise, and behavior rules. The file uses `{{BOT_NAME}}` as a placeholder that gets replaced with your `BOT_NAME` from `.env`. If you delete SOUL.md, the bot falls back to a generic assistant prompt.
+
+## Create a Performer
+
+Performers are specialist workers your bot can dispatch tasks to. Each performer has its own SOUL.md that defines its expertise.
+
+```bash
+# Copy the template
+cp -r $HYDRABOT_DIR/performers/template $HYDRABOT_DIR/performers/jobhunter
+
+# Edit the personality and config
+nano $HYDRABOT_DIR/performers/jobhunter/SOUL.md
+nano $HYDRABOT_DIR/performers/jobhunter/config.json  # set id and name
+```
+
+No restart needed — your bot discovers performers automatically.
+
+### Telegram Commands
+
+| Command | Description |
+|---------|-------------|
+| (any message) | Chat with Claude (multi-turn session) |
+| `/performers` | List available performers |
+| `/ask <performer> <message>` | Dispatch a task to a performer |
+| `/clear` | Reset conversation session |
+| `/session` | Show session info (message count, age) |
+| `/approve` | Resume a paused graph execution |
 
 ## Verify Circus is Running
 

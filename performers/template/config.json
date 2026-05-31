@@ -1,15 +1,9 @@
 {
-  "id": "template",
-  "name": "Template Worker",
-  "troupe": null,
+  "id": "CHANGE_ME",
+  "name": "CHANGE_ME",
   "persona_file": "SOUL.md",
-  "rate_limits": {
-    "messages_per_minute": 20,
-    "max_queue_size": 100
-  },
   "claude_config": {
     "model": "claude-sonnet-4-6",
     "timeout_ms": 120000
-  },
-  "sub_bot": true
+  }
 }
