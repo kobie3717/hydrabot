@@ -12,6 +12,9 @@ import 'dotenv/config';
 import { Bot } from 'grammy';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { readFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 // Support both in-repo and standalone deployment
 const BRIDGE_PATH = process.env.CIRCUS_BRIDGE_PATH ||
@@ -37,6 +40,25 @@ const CLAUDE_CWD    = process.env.CLAUDE_WORKING_DIR || process.cwd();
 const CLAUDE_TIMEOUT = parseInt(process.env.CLAUDE_TIMEOUT || '120000', 10);
 
 if (!BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is required');
+
+// ── Personality ─────────────────────────────────────────────────────────────
+
+function loadSoul() {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const soulPath = process.env.SOUL_FILE || join(__dirname, 'SOUL.md');
+    if (existsSync(soulPath)) {
+      const soul = readFileSync(soulPath, 'utf8')
+        .replaceAll('{{BOT_NAME}}', BOT_NAME)
+        .slice(0, 4000);
+      console.log(`[Soul] Loaded personality from ${soulPath}`);
+      return soul;
+    }
+  } catch { /* non-fatal */ }
+  return `You are ${BOT_NAME}, a helpful AI assistant.`;
+}
+
+const SOUL = loadSoul();
 
 const bot = new Bot(BOT_TOKEN);
 
@@ -100,7 +122,7 @@ bot.on('message:text', async (ctx) => {
 
     // Build system prompt
     const systemPrompt = [
-      `You are ${BOT_NAME}, a helpful AI assistant.`,
+      SOUL,
       sharedContext ? `\n## Shared Knowledge\n${sharedContext}` : '',
     ].filter(Boolean).join('\n');
 

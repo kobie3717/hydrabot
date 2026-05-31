@@ -83,6 +83,9 @@ cp -r $HYDRABOT_DIR/bots/template $HYDRABOT_DIR/bots/mybot
 cp $HYDRABOT_DIR/bots/template/.env.example $HYDRABOT_DIR/bots/mybot/.env
 nano $HYDRABOT_DIR/bots/mybot/.env
 
+# Customize your bot's personality (optional — works with defaults)
+nano $HYDRABOT_DIR/bots/mybot/SOUL.md
+
 # Install dependencies
 npm install --prefix $HYDRABOT_DIR/bots/mybot
 
@@ -99,6 +102,10 @@ pm2 save
 | `ALLOWED_USER_ID` | Your Telegram numeric ID |
 | `CLAUDE_CLI_PATH` | Output of `which claude` |
 | `BOT_NAME` | Display name for your bot |
+
+### Customize Personality
+
+Edit `SOUL.md` in your bot directory to define its personality, expertise, and behavior rules. The file uses `{{BOT_NAME}}` as a placeholder that gets replaced with your `BOT_NAME` from `.env`. If you delete SOUL.md, the bot falls back to a generic assistant prompt.
 
 ## Verify Circus is Running
 
