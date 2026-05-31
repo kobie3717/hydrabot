@@ -37,14 +37,16 @@ Circus API (FastAPI :6200)      Bot-Circus dispatch
 AI-IQ (memory-tool CLI)
 ```
 
-| Layer | Component | Purpose |
-|-------|-----------|---------|
-| 0 | Claude Code CLI | AI inference engine |
-| 1 | AI-IQ | Per-agent long-term memory |
-| 2 | Circus | Multi-agent mesh (registry, rooms, tasks) |
-| 3 | Bot-Circus | Ephemeral worker pool |
-| 4 | circus-bridge.mjs | Node.js ↔ Circus integration |
-| 5 | Bots | Telegram interface + business logic |
+| Directory | What it is | Example |
+|-----------|-----------|---------|
+| `bots/` | Telegram front-door bots (always running via PM2) | Your one bot that users chat with |
+| `performers/` | Specialist worker personas with SOUL.md | jobhunter, researcher, coder |
+| `bot-circus/` | Dispatch bridge — spawns ephemeral Claude workers | `dispatch('jobhunter', 'review my CV')` |
+| `circus/` | Multi-agent mesh (registry, rooms, tasks) | Shared knowledge, agent coordination |
+| `graph-engine/` | Graph orchestration with human-in-the-loop | Multi-step workflows |
+| `agents/` | Python agent packs (redteam, contract review) | Multi-agent analysis |
+
+**Flow:** You chat with your bot in Telegram. For general questions, it answers directly. For specialist tasks, it dispatches to a performer via bot-circus. The performer runs as an ephemeral Claude process using its SOUL.md, does the work, and returns the result.
 
 ## Prerequisites
 
@@ -57,31 +59,40 @@ AI-IQ (memory-tool CLI)
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/kobie3717/hydrabot.git /opt/hydrabot
+git clone https://github.com/kobie3717/hydrabot.git ~/Documents/hydrabot
 
-# 2. Run the installer (as root or with sudo)
-sudo HYDRABOT_DIR=/opt/hydrabot bash /opt/hydrabot/deploy/install.sh
+# 2. Run the installer (installs in-place)
+bash ~/Documents/hydrabot/deploy/install.sh
 ```
 
-The installer handles: Node.js 22, PM2, Claude Code CLI, Python deps, Circus API, and performer workspaces.
+**Or install to a separate runtime directory** (keeps your git repo clean):
+
+```bash
+HYDRABOT_DIR=~/hydrabot bash ~/Documents/hydrabot/deploy/install.sh
+```
+
+The installer checks all prerequisites first and prompts before installing anything. It uses `sudo` only for system packages and systemd setup. It handles: Node.js 22, PM2, Claude Code CLI, Python deps, Circus API, and performer workspaces.
 
 > **Auth step**: If Claude Code CLI wasn't already installed, the script will pause and ask you to run `claude login`. Do that, then re-run the installer.
 
 ## Configure a Bot
 
 ```bash
-# Copy the template
-cp -r /opt/hydrabot/bots/template /opt/hydrabot/bots/mybot
+# Copy the template (replace $HYDRABOT_DIR with your install path)
+cp -r $HYDRABOT_DIR/bots/template $HYDRABOT_DIR/bots/mybot
 
 # Fill in your values
-cp /opt/hydrabot/bots/template/.env.example /opt/hydrabot/bots/mybot/.env
-nano /opt/hydrabot/bots/mybot/.env
+cp $HYDRABOT_DIR/bots/template/.env.example $HYDRABOT_DIR/bots/mybot/.env
+nano $HYDRABOT_DIR/bots/mybot/.env
+
+# Customize your bot's personality (optional — works with defaults)
+nano $HYDRABOT_DIR/bots/mybot/SOUL.md
 
 # Install dependencies
-npm install --prefix /opt/hydrabot/bots/mybot
+npm install --prefix $HYDRABOT_DIR/bots/mybot
 
 # Start with PM2
-pm2 start /opt/hydrabot/bots/mybot/bot.mjs --name mybot
+pm2 start $HYDRABOT_DIR/bots/mybot/bot.mjs --name mybot --cwd $HYDRABOT_DIR/bots/mybot
 pm2 save
 ```
 
@@ -93,6 +104,36 @@ pm2 save
 | `ALLOWED_USER_ID` | Your Telegram numeric ID |
 | `CLAUDE_CLI_PATH` | Output of `which claude` |
 | `BOT_NAME` | Display name for your bot |
+
+### Customize Personality
+
+Edit `SOUL.md` in your bot directory to define its personality, expertise, and behavior rules. The file uses `{{BOT_NAME}}` as a placeholder that gets replaced with your `BOT_NAME` from `.env`. If you delete SOUL.md, the bot falls back to a generic assistant prompt.
+
+## Create a Performer
+
+Performers are specialist workers your bot can dispatch tasks to. Each performer has its own SOUL.md that defines its expertise.
+
+```bash
+# Copy the template
+cp -r $HYDRABOT_DIR/performers/template $HYDRABOT_DIR/performers/jobhunter
+
+# Edit the personality and config
+nano $HYDRABOT_DIR/performers/jobhunter/SOUL.md
+nano $HYDRABOT_DIR/performers/jobhunter/config.json  # set id and name
+```
+
+No restart needed — your bot discovers performers automatically.
+
+### Telegram Commands
+
+| Command | Description |
+|---------|-------------|
+| (any message) | Chat with Claude (multi-turn session) |
+| `/performers` | List available performers |
+| `/ask <performer> <message>` | Dispatch a task to a performer |
+| `/clear` | Reset conversation session |
+| `/session` | Show session info (message count, age) |
+| `/approve` | Resume a paused graph execution |
 
 ## Verify Circus is Running
 
@@ -106,10 +147,10 @@ curl http://localhost:6200/health
 The worker polls a job queue and runs long tasks via Claude:
 
 ```bash
-cp /opt/hydrabot/performers/worker/.env.example /opt/hydrabot/performers/worker/.env
-nano /opt/hydrabot/performers/worker/.env
-npm install --prefix /opt/hydrabot/performers/worker
-pm2 start /opt/hydrabot/performers/worker/worker.mjs --name worker
+cp $HYDRABOT_DIR/performers/worker/.env.example $HYDRABOT_DIR/performers/worker/.env
+nano $HYDRABOT_DIR/performers/worker/.env
+npm install --prefix $HYDRABOT_DIR/performers/worker
+pm2 start $HYDRABOT_DIR/performers/worker/worker.mjs --name worker
 pm2 save
 ```
 

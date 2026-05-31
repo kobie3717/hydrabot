@@ -292,20 +292,20 @@ PM2 Bots  (grammy + Claude Code CLI)
 <!-- Step 1 — Clone -->
 <h2><span class="num">2</span> Clone the Repository</h2>
 
-<pre><span class="comment"># Clone to /opt/hydrabot (recommended) or any directory</span>
-<span class="cmd">git clone</span> &lt;repo-url&gt; /opt/hydrabot
-<span class="cmd">cd</span> /opt/hydrabot</pre>
+<pre><span class="comment"># Clone anywhere you like (e.g. your home directory)</span>
+<span class="cmd">git clone</span> &lt;repo-url&gt; ~/hydrabot
+<span class="cmd">cd</span> ~/hydrabot</pre>
 
 <div class="callout info">
   <div class="callout-icon">ℹ️</div>
-  <div>You can install to any path. The installer respects the <code>HYDRABOT_DIR</code> environment variable. Examples in this guide use <code>/opt/hydrabot</code>.</div>
+  <div>You can install to any path. The installer auto-detects its location. You can also override with the <code>HYDRABOT_DIR</code> environment variable.</div>
 </div>
 
 <!-- Step 2 — Install -->
 <h2><span class="num">3</span> Run the Installer</h2>
 
-<pre><span class="comment"># Run as root (or with sudo)</span>
-<span class="cmd">sudo</span> HYDRABOT_DIR=/opt/hydrabot <span class="cmd">bash</span> /opt/hydrabot/deploy/install.sh</pre>
+<pre><span class="comment"># Run the installer (uses sudo only for system packages)</span>
+<span class="cmd">bash</span> ~/hydrabot/deploy/install.sh</pre>
 
 <p>The installer performs these steps automatically:</p>
 
@@ -356,11 +356,11 @@ PM2 Bots  (grammy + Claude Code CLI)
 <h3>Create and configure the bot</h3>
 
 <pre><span class="comment"># Copy the template</span>
-<span class="cmd">cp -r</span> /opt/hydrabot/bots/template /opt/hydrabot/bots/mybot
+<span class="cmd">cp -r</span> ~/hydrabot/bots/template ~/hydrabot/bots/mybot
 
 <span class="comment"># Copy and edit the env file</span>
-<span class="cmd">cp</span> /opt/hydrabot/bots/template/.env.example /opt/hydrabot/bots/mybot/.env
-<span class="cmd">nano</span> /opt/hydrabot/bots/mybot/.env</pre>
+<span class="cmd">cp</span> ~/hydrabot/bots/template/.env.example ~/hydrabot/bots/mybot/.env
+<span class="cmd">nano</span> ~/hydrabot/bots/mybot/.env</pre>
 
 <h3>Required <code>.env</code> values</h3>
 
@@ -377,10 +377,10 @@ PM2 Bots  (grammy + Claude Code CLI)
 <h3>Start the bot</h3>
 
 <pre><span class="comment"># Install dependencies</span>
-<span class="cmd">npm install</span> <span class="flag">--prefix</span> /opt/hydrabot/bots/mybot
+<span class="cmd">npm install</span> <span class="flag">--prefix</span> ~/hydrabot/bots/mybot
 
 <span class="comment"># Start with PM2</span>
-<span class="cmd">pm2 start</span> /opt/hydrabot/bots/mybot/bot.mjs <span class="flag">--name</span> mybot
+<span class="cmd">pm2 start</span> ~/hydrabot/bots/mybot/bot.mjs <span class="flag">--name</span> mybot <span class="flag">--cwd</span> ~/hydrabot/bots/mybot
 
 <span class="comment"># Save so it survives reboot</span>
 <span class="cmd">pm2 save</span>
@@ -399,15 +399,15 @@ PM2 Bots  (grammy + Claude Code CLI)
 <p>The worker polls a job queue and executes long-running tasks via Claude. Useful for background operations triggered from Telegram (<code>/task</code> style commands).</p>
 
 <pre><span class="comment"># Configure</span>
-<span class="cmd">cp</span> /opt/hydrabot/performers/worker/.env.example \
-   /opt/hydrabot/performers/worker/.env
-<span class="cmd">nano</span> /opt/hydrabot/performers/worker/.env
+<span class="cmd">cp</span> ~/hydrabot/performers/worker/.env.example \
+   ~/hydrabot/performers/worker/.env
+<span class="cmd">nano</span> ~/hydrabot/performers/worker/.env
 
 <span class="comment"># Install deps</span>
-<span class="cmd">npm install</span> <span class="flag">--prefix</span> /opt/hydrabot/performers/worker
+<span class="cmd">npm install</span> <span class="flag">--prefix</span> ~/hydrabot/performers/worker
 
 <span class="comment"># Start</span>
-<span class="cmd">pm2 start</span> /opt/hydrabot/performers/worker/worker.mjs <span class="flag">--name</span> worker
+<span class="cmd">pm2 start</span> ~/hydrabot/performers/worker/worker.mjs <span class="flag">--name</span> worker
 <span class="cmd">pm2 save</span></pre>
 
 <table class="env-row">
@@ -424,11 +424,11 @@ PM2 Bots  (grammy + Claude Code CLI)
 <p>Each bot is an independent directory. Repeat the configure step for each one:</p>
 
 <pre><span class="comment"># Second bot</span>
-<span class="cmd">cp -r</span> /opt/hydrabot/bots/template /opt/hydrabot/bots/designbot
-<span class="cmd">cp</span> /opt/hydrabot/bots/template/.env.example /opt/hydrabot/bots/designbot/.env
+<span class="cmd">cp -r</span> ~/hydrabot/bots/template ~/hydrabot/bots/designbot
+<span class="cmd">cp</span> ~/hydrabot/bots/template/.env.example ~/hydrabot/bots/designbot/.env
 <span class="comment"># Edit .env with different TELEGRAM_BOT_TOKEN</span>
-<span class="cmd">npm install</span> <span class="flag">--prefix</span> /opt/hydrabot/bots/designbot
-<span class="cmd">pm2 start</span> /opt/hydrabot/bots/designbot/bot.mjs <span class="flag">--name</span> designbot
+<span class="cmd">npm install</span> <span class="flag">--prefix</span> ~/hydrabot/bots/designbot
+<span class="cmd">pm2 start</span> ~/hydrabot/bots/designbot/bot.mjs <span class="flag">--name</span> designbot <span class="flag">--cwd</span> ~/hydrabot/bots/designbot
 <span class="cmd">pm2 save</span></pre>
 
 <div class="callout info">

@@ -9,7 +9,8 @@ import { promisify } from 'util';
 import { join } from 'path';
 
 const execFileAsync = promisify(execFile);
-const CIRCUS_DB = process.env.CIRCUS_DB || join(process.env.HOME || '/root', '.circus/circus.db');
+const HOME_DIR = process.env.HOME || '/root';
+const CIRCUS_DB = process.env.CIRCUS_DB || join(HOME_DIR, '.circus/circus.db');
 
 const STATE_ICONS = {
   completed: '✅', running: '🔄', failed: '❌', paused: '⏸', pending: '⏳', skipped: '⏭'

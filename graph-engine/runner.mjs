@@ -7,12 +7,15 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'crypto';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import vm from 'vm';
 
-const CIRCUS_DB = process.env.CIRCUS_DB || join(process.env.HOME || '/root', '.circus/circus.db');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const HOME_DIR = process.env.HOME || '/root';
+const CIRCUS_DB = process.env.CIRCUS_DB || join(HOME_DIR, '.circus/circus.db');
 const CIRCUS_URL = process.env.CIRCUS_URL || 'http://localhost:6200';
-const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || join(process.env.HOME || '/root', 'hydrabot/bot-circus');
+const BOT_CIRCUS_DIR = process.env.BOT_CIRCUS_DIR || join(__dirname, '..', 'bot-circus');
 
 /**
  * Database connection singleton

@@ -9,8 +9,8 @@ import { join } from 'path';
 const PERFORMERS_DIR = process.env.PERFORMERS_DIR ||
   new URL('../performers', import.meta.url).pathname;
 
+// Add performers here or create them manually: cp -r performers/template performers/myworker
 const DEFAULT_PERFORMERS = [
-  { id: 'bot1', name: 'Bot One', role: 'general assistant' },
 ];
 
 for (const { id, name, role } of DEFAULT_PERFORMERS) {
